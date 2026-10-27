@@ -74,6 +74,7 @@ export function RecordModal({
   const [endValue, setEndValue] = useState(toLocalInput(defaultEndMs(startMs, nextStartMs, defaultDurationMs)))
   const [endTouched, setEndTouched] = useState(false)
   const [suffix, setSuffix] = useState(`CH${pipelineId}`)
+  const [durationMinutes, setDurationMinutes] = useState(String(Math.round(defaultDurationMs / 60_000)))
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,9 +82,11 @@ export function RecordModal({
   useEffect(() => {
     if (!open) return
     setStartValue(toLocalInput(startMs))
-    setEndValue(toLocalInput(defaultEndMs(startMs, nextStartMs, defaultDurationMs)))
+    const end = defaultEndMs(startMs, nextStartMs, defaultDurationMs)
+    setEndValue(toLocalInput(end))
     setEndTouched(false)
     setSuffix(`CH${pipelineId}`)
+    setDurationMinutes(String(Math.round((end - startMs) / 60_000)))
     setError(null)
   }, [open, startMs, pipelineId, nextStartMs, defaultDurationMs])
 
@@ -172,7 +175,9 @@ export function RecordModal({
               if (!endTouched) {
                 const parsed = new Date(value).getTime()
                 if (!Number.isNaN(parsed)) {
-                  setEndValue(toLocalInput(defaultEndMs(parsed, nextStartFor(parsed), defaultDurationMs)))
+                  const end = defaultEndMs(parsed, nextStartFor(parsed), defaultDurationMs)
+                  setEndValue(toLocalInput(end))
+                  setDurationMinutes(String(Math.round((end - parsed) / 60_000)))
                 }
               }
             }}
@@ -188,9 +193,36 @@ export function RecordModal({
             onChange={(e) => {
               setEndTouched(true)
               setEndValue(e.target.value)
+              const startMs = new Date(startValue).getTime()
+              const endMs = new Date(e.target.value).getTime()
+              if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+                setDurationMinutes(String(Math.round((endMs - startMs) / 60_000)))
+              }
             }}
             className="h-8 text-xs"
           />
+        </div>
+        <div className="grid grid-cols-[88px_1fr] items-start gap-2">
+          <span className="pt-1 text-2xs text-subtle">Duration</span>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={durationMinutes}
+              onChange={(e) => {
+                setDurationMinutes(e.target.value)
+                const mins = Number(e.target.value)
+                const startMs = new Date(startValue).getTime()
+                if (!Number.isNaN(mins) && mins > 0 && !Number.isNaN(startMs)) {
+                  setEndValue(toLocalInput(startMs + mins * 60_000))
+                  setEndTouched(true)
+                }
+              }}
+              className="h-8 w-24 text-xs"
+            />
+            <span className="text-2xs text-subtle">minutes</span>
+          </div>
         </div>
         {error && <p className="text-2xs text-danger">{error}</p>}
       </div>

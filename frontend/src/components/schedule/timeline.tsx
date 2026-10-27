@@ -226,7 +226,7 @@ export function Timeline({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-surface">
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden mx-2">
         <div style={{ width: PANEL_WIDTH + laneWidth }}>
           {/* ---------- ruler ---------- */}
           <div

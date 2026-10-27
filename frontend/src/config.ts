@@ -34,10 +34,10 @@ export const API_PREFIX = `${API_BASE}/api`
 export const SCHEDULE_POLL_MS = 30_000
 
 /** Server lock window, mirrored so the UI can pre-empt it (FR-RT-04). */
-export const LOCK_WINDOW_MS = 30_000
+export const LOCK_WINDOW_MS = 15_000
 
 /** Lock window as an ISO-ish duration string for display. */
-export const LOCK_WINDOW_LABEL = '30s'
+export const LOCK_WINDOW_LABEL = '15s'
 
 /**
  * Default length for a newly placed held graphic (DOG / BUG).
