@@ -139,6 +139,9 @@ def default_recording_duration_minutes():
         return max(1, int(setting.default_duration_minutes or 30))
     except (TypeError, ValueError):
         return 30
+
+
+def recording_edit_block(rec, now=None, payload=None):
     """
     Why a scheduled recording may not be moved/edited right now.
 
@@ -169,6 +172,9 @@ def default_recording_duration_minutes():
         )
 
     return None
+
+
+def recording_stop_block(rec, now=None):
     """
     Why `rec` cannot be stopped right now, as ``(code, message)``, or ``None``.
 
