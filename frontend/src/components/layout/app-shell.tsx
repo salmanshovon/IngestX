@@ -20,10 +20,12 @@ export function AppShell() {
   const location = useLocation()
   const setNowMode = useUiStore((state) => state.setNowMode)
 
-  // Re-anchor the viewport on every tab change. Carrying a scroll offset from
-  // the Scheduler into the System tab is pure confusion.
+  // A freshly loaded page (or a reload) must open pinned, not following: the
+  // following mode re-centres the viewport every second and refuses every edit,
+  // so landing in it on load left the operator with a timeline they could read
+  // but not touch. Follow is opt-in via the toolbar toggle.
   useEffect(() => {
-    if (location.pathname === '/schedule') setNowMode('timeline')
+    if (location.pathname === '/schedule') setNowMode('marker')
   }, [location.pathname, setNowMode])
 
   return (

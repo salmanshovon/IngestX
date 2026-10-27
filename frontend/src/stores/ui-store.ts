@@ -175,7 +175,6 @@ export const useUiStore = create<UiState>()(
       // offset is re-anchored to "now" instead (FR-ST-05).
       partialize: (state) => ({
         zoomIndex: state.zoomIndex,
-        nowMode: state.nowMode,
         theme: state.theme,
         showGrid: state.showGrid,
         pollRealtimeToo: state.pollRealtimeToo,
@@ -185,16 +184,19 @@ export const useUiStore = create<UiState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
+        // A reloaded page always starts pinned: following mode re-centres the
+        // viewport every second and refuses every edit, so restoring it on load
+        // left the operator with a timeline they could read but not touch.
+        state.nowMode = 'marker'
         state.offsetMs = Date.now() - ZOOM_LEVELS_MS[state.zoomIndex] / 2
       },
-      // Pinned is the new default. A preference persisted by an older build
-      // would otherwise outlive the change and keep existing operators in
-      // Following (where every edit is refused), so the schema is bumped and
-      // the mode is corrected once on rehydration.
-      version: 2,
+      // Pinned is the new default and is now forced on every rehydration. Older
+      // builds persisted `nowMode`, so the schema is bumped and any stored value
+      // is corrected once on rehydration.
+      version: 3,
       migrate: (persisted, version) => {
         const state = persisted as Partial<UiState> | undefined
-        if (state && version < 2) state.nowMode = 'marker'
+        if (state && version < 3) state.nowMode = 'marker'
         return state as UiState
       },
     },
