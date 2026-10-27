@@ -219,11 +219,11 @@ export function canDeleteAt(event: ScheduleEvent, nowMs: number): boolean {
 export function deleteBlockMessage(block: DeleteBlock): string {
   switch (block) {
     case 'recording':
-      return 'It is recording right now — stop the recording instead of deleting it.'
+      return 'It is recording right now — it cannot be moved or deleted. Stop the recording instead.'
     case 'queued':
-      return 'It is queued to start within 15 seconds and can no longer be deleted.'
+      return 'It is queued to start within 15 seconds and can no longer be moved, edited or deleted.'
     case 'past':
-      return 'It has already finished, and past items cannot be deleted.'
+      return 'It has already finished, and past items cannot be moved, edited or deleted.'
   }
 }
 

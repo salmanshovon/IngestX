@@ -36,8 +36,12 @@ function buildPrefix(value: string): string {
  * that starts 8 minutes before the next recording gets 7m50s, not an overlap --
  * the 10s keep-clear is the same gap the duplicate action uses.
  */
-function defaultEndMs(startMs: number, nextStartMs?: number | null): number {
-  const preferred = startMs + DEFAULT_RECORD_MS
+function defaultEndMs(
+  startMs: number,
+  nextStartMs?: number | null,
+  defaultDurationMs: number = DEFAULT_RECORD_MS,
+): number {
+  const preferred = startMs + defaultDurationMs
   if (nextStartMs === null || nextStartMs === undefined) return preferred
   return Math.min(preferred, nextStartMs - RECORD_GAP_MS)
 }
@@ -49,6 +53,8 @@ export interface RecordModalProps {
   startMs: number
   /** Start of the next scheduled item on this channel, when there is one. */
   nextStartMs?: number | null
+  /** `RecordingSetting.default_duration_minutes` in ms. */
+  defaultDurationMs?: number
   /** Full schedule, so a changed Start re-bounds the End against the right recording. */
   events: readonly ScheduleEvent[]
   onSuccess?: () => void
@@ -60,11 +66,12 @@ export function RecordModal({
   pipelineId,
   startMs,
   nextStartMs,
+  defaultDurationMs = DEFAULT_RECORD_MS,
   events,
   onSuccess,
 }: RecordModalProps) {
   const [startValue, setStartValue] = useState(toLocalInput(startMs))
-  const [endValue, setEndValue] = useState(toLocalInput(defaultEndMs(startMs, nextStartMs)))
+  const [endValue, setEndValue] = useState(toLocalInput(defaultEndMs(startMs, nextStartMs, defaultDurationMs)))
   const [endTouched, setEndTouched] = useState(false)
   const [suffix, setSuffix] = useState(`CH${pipelineId}`)
 
@@ -74,11 +81,11 @@ export function RecordModal({
   useEffect(() => {
     if (!open) return
     setStartValue(toLocalInput(startMs))
-    setEndValue(toLocalInput(defaultEndMs(startMs, nextStartMs)))
+    setEndValue(toLocalInput(defaultEndMs(startMs, nextStartMs, defaultDurationMs)))
     setEndTouched(false)
     setSuffix(`CH${pipelineId}`)
     setError(null)
-  }, [open, startMs, pipelineId, nextStartMs])
+  }, [open, startMs, pipelineId, nextStartMs, defaultDurationMs])
 
   const prefix = buildPrefix(startValue)
 
@@ -165,7 +172,7 @@ export function RecordModal({
               if (!endTouched) {
                 const parsed = new Date(value).getTime()
                 if (!Number.isNaN(parsed)) {
-                  setEndValue(toLocalInput(defaultEndMs(parsed, nextStartFor(parsed))))
+                  setEndValue(toLocalInput(defaultEndMs(parsed, nextStartFor(parsed), defaultDurationMs)))
                 }
               }
             }}

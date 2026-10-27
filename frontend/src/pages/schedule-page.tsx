@@ -11,6 +11,7 @@ import {
   useDeleteEvents,
   useMedia,
   usePipelines,
+  useRecordSettings,
   useRetimeBatch,
   useSchedules,
   useUpdateEvent,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/timeline'
 import {
   canStopRecording,
+  defaultRecordMsFromMinutes,
   nextScheduledStart,
   recordingPrefix,
   recordingStopInMs,
@@ -89,6 +91,15 @@ export function SchedulePage() {
   // at once, and per-pipeline requests would multiply into N round-trips.
   const scheduleQuery = useSchedules()
   const events = useMemo(() => scheduleQuery.data?.results ?? [], [scheduleQuery.data])
+
+  // Settings owns the default recording length. Both the header's Start Record
+  // and the Schedule record modal read it, with the 30-minute constant only as
+  // the pre-fetch fallback.
+  const recordSettingsQuery = useRecordSettings()
+  const defaultDurationMs = useMemo(
+    () => defaultRecordMsFromMinutes(recordSettingsQuery.data?.default_duration_minutes),
+    [recordSettingsQuery.data],
+  )
 
   const viewport = useViewport()
   const nowMode = useUiStore((state) => state.nowMode)
@@ -151,6 +162,7 @@ export function SchedulePage() {
           pipelineId: headerPipelineId,
           suffix: `CH${headerPipelineId}`,
           nextStartMs: nextScheduledStart(events, headerPipelineId, Date.now()),
+          defaultDurationMs,
         })
         if ('error' in result) {
           notify.warning('Cannot start recording', result.error)
@@ -165,7 +177,7 @@ export function SchedulePage() {
         error instanceof Error ? error.message : 'The server did not accept it.',
       )
     }
-  }, [headerPipelineId, headerRecording, events, scheduleQuery])
+  }, [headerPipelineId, headerRecording, events, scheduleQuery, defaultDurationMs])
 
   // Keep the active (rundown) pipeline in sync with the selected item.
   useEffect(() => {
@@ -207,6 +219,21 @@ export function SchedulePage() {
     }) => {
       const byId = new Map(events.map((event) => [event.id, event]))
       const changes: RetimeChange[] = []
+
+      // Re-check at commit, not just at pointer-down: the gesture can last long
+      // enough for the item to cross its 15-second cutoff while it is held.
+      const at = Date.now()
+      const frozen = payload.ids
+        .map((id) => byId.get(id))
+        .find((candidate) => candidate !== undefined && deleteBlock(candidate, at) !== null)
+      if (frozen) {
+        const block = deleteBlock(frozen, at)
+        notify.warning(
+          'Cannot move this item',
+          block ? deleteBlockMessage(block) : 'It is no longer editable.',
+        )
+        return
+      }
 
       for (const id of payload.ids) {
         const event = byId.get(id)
@@ -405,8 +432,25 @@ export function SchedulePage() {
       companions: ScheduleEvent[]
     }) => {
       if (nowMode === 'timeline') return
-      // FR-DND-13 / locked-and-on-air are refused, not silently ignored.
-      if (args.event.is_locked || args.event.is_on_air) return
+      // The 15-second queue cutoff that freezes delete also freezes moving and
+      // resizing. By this point the item has been handed to the engine, and a
+      // past item is history rather than a schedule. Checking the whole chain
+      // matters: one frozen member would otherwise be dragged along with the
+      // rest of its break.
+      const at = Date.now()
+      const frozen = [args.event, ...args.companions].find(
+        (candidate) => deleteBlock(candidate, at) !== null,
+      )
+      if (frozen) {
+        const block = deleteBlock(frozen, at)
+        if (frozen.id !== args.event.id) {
+          notify.warning(
+            'Cannot move this break',
+            `One of its items is frozen. ${block ? deleteBlockMessage(block) : ''}`.trim(),
+          )
+        }
+        return
+      }
       startDrag({
         kind: args.kind,
         primary: args.event,
@@ -496,6 +540,18 @@ export function SchedulePage() {
   const commitChainOrder = useCallback(
     (order: number[]) => {
       if (!chainTarget || chainMembers.length === 0) return
+      // A break whose first item is already queued/recording/past cannot be
+      // reordered: retiming the members would move a frozen capture.
+      const at = Date.now()
+      const frozen = chainMembers.find((member) => deleteBlock(member.event, at) !== null)
+      if (frozen) {
+        const block = deleteBlock(frozen.event, at)
+        notify.warning(
+          'Cannot reorder this break',
+          block ? deleteBlockMessage(block) : 'One of its items is no longer editable.',
+        )
+        return
+      }
       // FR-CHAIN-05: absolute times are assigned by cumulative duration from
       // the break's original start, which is what keeps it gapless.
       const firstStart = Date.parse(chainMembers[0].event.scheduled_time)
@@ -780,6 +836,19 @@ export function SchedulePage() {
                   isSaving={updateEvent.isPending || cancelEvent.isPending}
                   onSave={(patch) => {
                     if (!selectedEvent) return
+                    // The inspector's disabled fields already encode this, but a
+                    // form can be open across the cutoff. Start/notes/name are
+                    // frozen exactly like a drag; the one sanctioned exception
+                    // is trimming or extending a running recording by its end
+                    // time alone, which the server allows too.
+                    const at = Date.now()
+                    const block = deleteBlock(selectedEvent, at)
+                    const endOnly =
+                      Object.keys(patch).length === 1 && patch.end_time !== undefined
+                    if (block && !(endOnly && isLiveAt(selectedEvent, at))) {
+                      notify.warning('Cannot change this item', deleteBlockMessage(block))
+                      return
+                    }
                     if (selectedEvent.action_type === 'RECORD') {
                       const payload: Record<string, unknown> = {}
                       if (patch.scheduled_time) payload.start_time = patch.scheduled_time
@@ -861,6 +930,7 @@ export function SchedulePage() {
         pipelineId={recordTarget?.pipelineId ?? 0}
         startMs={recordTarget?.startMs ?? Date.now()}
         nextStartMs={recordNextStartMs}
+        defaultDurationMs={defaultDurationMs}
         events={events}
         onSuccess={() => scheduleQuery.refetch()}
       />
@@ -1135,6 +1205,9 @@ function handleMutationError(error: unknown, fallback: string): void {
       break
     case 'DELETE_BLOCKED':
       notify.warning('Cannot delete this item', apiError.message)
+      break
+    case 'EDIT_BLOCKED':
+      notify.warning('This item is frozen', apiError.message)
       break
     case 'STOP_TOO_SOON':
       notify.warning('The recording just started', apiError.message)

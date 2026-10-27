@@ -100,7 +100,11 @@ export const useUiStore = create<UiState>()(
     (set) => ({
       offsetMs: Date.now() - 30 * MINUTES,
       zoomIndex: DEFAULT_ZOOM_INDEX,
-      nowMode: 'timeline',
+      // Pinned by default. Following mode refuses every edit (the viewport is
+      // moving under the pointer), so opening on the clock left the operator
+      // with a timeline they could read but not touch until they found the
+      // mode toggle. `p` still switches to Following when they want it.
+      nowMode: 'marker',
       laneWidthPx: 1200,
 
       selectedEventId: null,
@@ -182,6 +186,16 @@ export const useUiStore = create<UiState>()(
       onRehydrateStorage: () => (state) => {
         if (!state) return
         state.offsetMs = Date.now() - ZOOM_LEVELS_MS[state.zoomIndex] / 2
+      },
+      // Pinned is the new default. A preference persisted by an older build
+      // would otherwise outlive the change and keep existing operators in
+      // Following (where every edit is refused), so the schema is bumped and
+      // the mode is corrected once on rehydration.
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<UiState> | undefined
+        if (state && version < 2) state.nowMode = 'marker'
+        return state as UiState
       },
     },
   ),

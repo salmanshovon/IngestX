@@ -5,8 +5,10 @@ import { MonitorPlay } from 'lucide-react'
 import type { MediaLane, Pipeline, ScheduleEvent } from '@/api/types'
 import { CHANNEL_TIMEZONE, LOCK_WINDOW_MS } from '@/config'
 import { cn } from '@/lib/cn'
+import { defaultRecordMsFromMinutes } from '@/lib/recording'
 import { formatClock, formatDate, formatShortDuration, displayTitle, toNumber } from '@/lib/format'
-import { nextScheduledStart, startImmediateRecording, stopRecordingNow } from '@/lib/recording'
+import { nextScheduledStart, startImmediateRecording, stopRecordingNow } from '@/lib/recording'
+import { useRecordSettings } from '@/hooks/use-playout-data'
 import {
   LANE_DEFINITIONS,
   NOW_ANCHOR,
@@ -736,6 +738,8 @@ function NowNext({
   nextRecordingStartMs: number | null
 }) {
   const queryClient = useQueryClient()
+  const recordSettings = useRecordSettings()
+  const defaultDurationMs = defaultRecordMsFromMinutes(recordSettings.data?.default_duration_minutes)
   // Local id covers the gap between POST and the next schedule refetch; after
   // that the executing event is the source of truth, so a reload remembers
   // that this channel is already recording.
@@ -770,6 +774,7 @@ function NowNext({
           pipelineId,
           suffix: `CH${pipelineId}`,
           nextStartMs: nextRecordingStartMs,
+          defaultDurationMs,
         })
         if ('error' in result) {
           notify.warning('Cannot start recording', result.error)

@@ -58,6 +58,16 @@ export interface ImmediateRecordingPlan {
 export type ImmediateRecordingResult = ImmediateRecordingPlan | { error: string }
 
 /**
+ * Default slot length, from the `RecordingSetting` minutes value.
+ *
+ * Settings owns the number; the constant in `config.ts` is only the fallback
+ * for the moment before the setting has loaded (or if the request fails).
+ */
+export function defaultRecordMsFromMinutes(minutes: number | null | undefined): number {
+  return Math.max(1, minutes ?? DEFAULT_RECORD_MS / 60_000) * 60_000
+}
+
+/**
  * Work out the window for a recording that starts now.
  *
  * `nextStartMs` is the next scheduled item's start, if any. When the default
@@ -66,9 +76,10 @@ export type ImmediateRecordingResult = ImmediateRecordingPlan | { error: string 
 export function planImmediateRecording(
   nextStartMs: number | null,
   nowMs: number = Date.now(),
+  defaultDurationMs: number = DEFAULT_RECORD_MS,
 ): ImmediateRecordingResult {
   const startMs = nowMs
-  const preferredEnd = startMs + DEFAULT_RECORD_MS
+  const preferredEnd = startMs + defaultDurationMs
   const endMs =
     nextStartMs === null ? preferredEnd : Math.min(preferredEnd, nextStartMs - RECORD_GAP_MS)
 
@@ -87,8 +98,10 @@ export async function startImmediateRecording(input: {
   suffix: string
   nextStartMs: number | null
   nowMs?: number
+  /** `RecordingSetting.default_duration_minutes` in ms; defaults to 30 min. */
+  defaultDurationMs?: number
 }): Promise<{ id: number | null; endMs: number } | { error: string }> {
-  const plan = planImmediateRecording(input.nextStartMs, input.nowMs)
+  const plan = planImmediateRecording(input.nextStartMs, input.nowMs, input.defaultDurationMs)
   if ('error' in plan) return plan
 
   const response = await api.post<{ task_data?: { id?: number } }>('/start_record/', {

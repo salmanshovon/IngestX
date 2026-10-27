@@ -133,7 +133,42 @@ def recording_delete_block(rec, now=None):
     return None
 
 
-def recording_stop_block(rec, now=None):
+def default_recording_duration_minutes():
+    setting, _ = RecordingSetting.objects.get_or_create(defaults={'default_duration_minutes': 30})
+    try:
+        return max(1, int(setting.default_duration_minutes or 30))
+    except (TypeError, ValueError):
+        return 30
+    """
+    Why a scheduled recording may not be moved/edited right now.
+
+    The same 15-second queue cutoff that freezes delete also freezes moving,
+    retiming and editing a capture: by that point the engine has the item and
+    mutating it would race the capture. Past and finished items are history.
+
+    A capture that is actually running keeps one sanctioned exception: its end
+    time may be trimmed or extended, because that is how an operator finishes a
+    recording that overruns. Everything else is refused.
+    """
+    now = now or timezone.now()
+
+    if rec.status == 'RECORDING' and payload is not None:
+        if set(payload).issubset({'end_time'}):
+            return None
+
+    if rec.status in ('COMPLETED', 'STOPPED', 'FAILED'):
+        return (
+            'EDIT_BLOCKED',
+            'This item has already finished and can no longer be moved, edited or deleted.',
+        )
+
+    if rec.start_time <= now + DELETE_CUTOFF:
+        return (
+            'EDIT_BLOCKED',
+            'This item is queued or already started (within 15 seconds of its start) and can no longer be moved, edited or deleted.',
+        )
+
+    return None
     """
     Why `rec` cannot be stopped right now, as ``(code, message)``, or ``None``.
 
@@ -649,7 +684,17 @@ class StartRecordView(APIView):
 
         if serializer.is_valid():
 
-            ser = serializer.save()
+            data = serializer.validated_data
+            start = data.get('start_time') or timezone.now()
+            if timezone.is_naive(start):
+                start = timezone.make_aware(start)
+            end = data.get('end_time')
+            if end is None:
+                end = start + timedelta(minutes=default_recording_duration_minutes())
+            if timezone.is_naive(end):
+                end = timezone.make_aware(end)
+
+            ser = serializer.save(start_time=start, end_time=end)
             recording = request.data
 
             task_data = {
@@ -827,8 +872,17 @@ class RecordingListCreateView(generics.ListCreateAPIView):
         ).order_by('start_time')
 
     def perform_create(self, serializer):
+        start = serializer.validated_data.get('start_time') or timezone.now()
+        if timezone.is_naive(start):
+            start = timezone.make_aware(start)
+        end = serializer.validated_data.get('end_time')
+        if end is None:
+            end = start + timedelta(minutes=default_recording_duration_minutes())
+        if timezone.is_naive(end):
+            end = timezone.make_aware(end)
+
         # 1. Save the new recording instance to the database
-        instance = serializer.save()
+        instance = serializer.save(start_time=start, end_time=end)
         
         # 2. Trigger your utility to alert PyQt5
         send_command_to_pyqt(
@@ -861,6 +915,17 @@ class RecordingDetailView(generics.RetrieveUpdateDestroyAPIView):
                 status=status.HTTP_409_CONFLICT,
             )
         return super().destroy(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        block = recording_edit_block(instance, payload=request.data or {})
+        if block:
+            code, message = block
+            return Response(
+                {'detail': message, 'code': code},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return super().update(request, *args, **kwargs)
 
     def perform_update(self, serializer):
         # 1. Save changes (via either PUT or PATCH)
@@ -914,6 +979,13 @@ class ScheduleDetailView(APIView):
         if rec is None:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         data = request.data or {}
+        block = recording_edit_block(rec, payload=data)
+        if block:
+            code, message = block
+            return Response(
+                {'detail': message, 'code': code},
+                status=status.HTTP_409_CONFLICT,
+            )
         if 'scheduled_time' in data or 'start_time' in data:
             rec.start_time = data.get('scheduled_time', data.get('start_time', rec.start_time))
         if 'end_time' in data:

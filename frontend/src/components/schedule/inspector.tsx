@@ -207,18 +207,22 @@ export function Inspector({
   // otherwise. The delete/stop rules follow the clock for the same reason.
   const live = isLiveAt(event, now)
   const deleteBlocked = deleteBlock(event, now)
+  // Frozen is the clock-derived 15-second queue cutoff: within it (or already
+  // live/past) the item belongs to the engine and is no longer the schedule's
+  // to move. `locked` remains the server flag and is only used for copy.
+  const frozen = deleteBlocked !== null
   const canDelete = deleteBlocked === null
   const canStop = isRecording && live
   const stopAllowed = canStop && canStopRecording(event, now)
   const stopInMs = canStop ? recordingStopInMs(event, now) : 0
   const { prefix: filenamePrefix } = splitFilename(event.media_title)
   const terminal = event.status === 'COMPLETED' || event.status === 'FAILED' || event.status === 'CANCELLED'
-  const canEditStart = !locked && !onAir && event.status === 'PENDING'
-  // A recording's end is its stop time, so it stays editable while it is still
-  // running — that is exactly when an operator needs to extend or trim it.
-  // Held graphics keep the old rule and go read-only once on air.
-  const canEditEnd = !terminal && (isRecording || (isHeld && !onAir))
-  const canEditNote = !locked && !onAir
+  const canEditStart = !frozen && event.status === 'PENDING'
+  // A running recording may still be trimmed or extended by its end time --
+  // that is how the operator finishes a capture that overruns. Everything
+  // else follows the same freeze as start/delete.
+  const canEditEnd = !terminal && (isRecording ? live || !frozen : isHeld && !onAir)
+  const canEditNote = !frozen && !onAir
   const LockIcon = Lock
 
   const startIso = fromLocalInput(startValue, event.scheduled_time)
@@ -292,7 +296,7 @@ export function Inspector({
             <StatusBadge status={event.status} />
           </div>
 
-          {(locked || live || (event.media_item === null && event.action_type !== 'RECORD')) && (
+          {(frozen || live || (event.media_item === null && event.action_type !== 'RECORD')) && (
             <div
               className={cn(
                 'flex items-start gap-2 rounded-md border border-line px-2.5 py-2 text-2xs leading-relaxed',
@@ -309,11 +313,15 @@ export function Inspector({
               <span>
                 {live
                   ? isRecording
-                    ? 'Recording now — the end time and duration can still be adjusted, but it cannot be moved or deleted. Use Stop now to end it.'
+                    ? 'Recording now — it cannot be moved or deleted. Use Stop now to end it; its end time can still be adjusted.'
                     : 'On air — this item cannot be moved, retimed or deleted.'
-                  : locked
-                    ? `Inside the ${LOCK_WINDOW_LABEL} lock window — changes are refused by the server.`
-                    : 'The media file behind this event no longer exists on the agent. It cannot be played; delete it or re-point it at a current file.'}
+                  : frozen
+                    ? deleteBlocked === 'queued'
+                      ? 'Queued to start within 15 seconds — it can no longer be moved, edited or deleted.'
+                      : 'This item has finished — past items cannot be moved, edited or deleted.'
+                    : locked
+                      ? `Inside the ${LOCK_WINDOW_LABEL} lock window — changes are refused by the server.`
+                      : 'The media file behind this event no longer exists on the agent. It cannot be played; delete it or re-point it at a current file.'}
               </span>
             </div>
           )}
@@ -354,7 +362,7 @@ export function Inspector({
               <Row label="Name">
                 <Input
                   value={suffixValue}
-                  disabled={locked || onAir}
+                  disabled={frozen || onAir}
                   onChange={(event_) => {
                     setTouched(true)
                     setSuffixValue(event_.target.value)

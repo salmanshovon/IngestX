@@ -22,6 +22,7 @@ export const queryKeys = {
 
   schedules: (pipelineId?: number) => ['schedules', pipelineId ?? 'all'] as const,
   chainPreview: (pipelineId: number) => ['chain-preview', pipelineId] as const,
+  recordSettings: ['record-settings'] as const,
 
   deliveries: (serverId?: number) => ['deliveries', serverId ?? 'all'] as const,
 

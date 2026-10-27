@@ -4,10 +4,13 @@ import { api } from '@/lib/api-client'
 import { PageHeader } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/format'
 
 export function SettingsPage() {
   const [minutes, setMinutes] = useState(30)
   const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     api.get<{ default_duration_minutes: number }>('/record-settings').then((data) => {
@@ -18,6 +21,7 @@ export function SettingsPage() {
 
   async function save() {
     await api.patch('/record-settings', { default_duration_minutes: minutes })
+    queryClient.invalidateQueries({ queryKey: queryKeys.recordSettings })
   }
 
   return (

@@ -26,7 +26,7 @@ import type {
   Server,
   ServerEngineState,
 } from '@/api/types'
-import { ApiError, isApiError, primeCsrfCookie } from '@/lib/api-client'
+import { ApiError, api, isApiError, primeCsrfCookie } from '@/lib/api-client'
 import { CHANNEL_TIMEZONE, SCHEDULE_POLL_MS } from '@/config'
 import { queryKeys } from '@/lib/format'
 import { notify } from '@/stores/notification-store'
@@ -235,6 +235,21 @@ export interface ScheduleFilters {
   pipelineId?: number
   from?: string
   to?: string
+}
+
+/**
+ * Channel-wide recording default (`RecordingSetting`).
+ *
+ * The schedule modal and Start Record both read the duration from here, so a
+ * change in Settings takes effect on the very next slot/recording instead of
+ * being a number the UI never looks at.
+ */
+export function useRecordSettings() {
+  return useQuery({
+    queryKey: queryKeys.recordSettings,
+    queryFn: () => api.get<{ default_duration_minutes: number }>('/record-settings'),
+    staleTime: 5 * 60_000,
+  })
 }
 
 export function useSchedules(filters: ScheduleFilters = {}) {
