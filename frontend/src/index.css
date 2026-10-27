@@ -1,0 +1,393 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   PlyOut design tokens (FR-DS-01)
+   --------------------------------------------------------------------------
+   The legacy UI hard-coded every colour inline. Everything visual now reads a
+   custom property, so a theme is a variable swap and never a component edit.
+
+   The clip status palette below is preserved verbatim from the legacy operator
+   UI (SRS §11.15) -- operators are trained on those exact colours and
+   "slightly different amber" is a support call.
+   ========================================================================== */
+
+@theme {
+  --font-sans:
+    'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+
+  /* Type scale tuned for the compact 10-12px timeline density (FR-DS-05). */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.125rem;
+}
+
+/* ---------- Light theme (default) -------------------------------------- */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-canvas: #f4f6fa;
+  --bg-surface: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-sunken: #eceff5;
+  --bg-inset: #f7f9fc;
+  --bg-hover: #eef1f7;
+  --bg-active: #e3e9f3;
+  --bg-overlay: rgb(15 23 42 / 0.45);
+
+  --fg-default: #0f172a;
+  --fg-muted: #5a6478;
+  --fg-subtle: #8a93a6;
+  --fg-inverted: #ffffff;
+
+  --border-default: #d9dee8;
+  --border-strong: #b9c1d1;
+  --border-subtle: #e7ebf2;
+
+  --accent: #007aff;
+  --accent-hover: #0066d8;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(0 122 255 / 0.12);
+  --accent-ring: rgb(0 122 255 / 0.35);
+
+  --ok: #34c759;
+  --ok-soft: rgb(52 199 89 / 0.14);
+  --warn: #ff9500;
+  --warn-soft: rgb(255 149 0 / 0.14);
+  --danger: #ff3b30;
+  --danger-soft: rgb(255 59 48 / 0.12);
+  --info: #5ac8fa;
+  --info-soft: rgb(90 200 250 / 0.16);
+
+  /* --- clip palette (SRS §11.15, preserved) --- */
+  --clip-error-bg: #3a1a1a;
+  --clip-error-border: #ff3b30;
+  --clip-error-fg: #ff6b6b;
+
+  --clip-scheduled-bg: #fff8e1;
+  --clip-scheduled-border: #ff9500;
+  --clip-scheduled-fg: #e65100;
+
+  --clip-live-bg: #4a1a1a;
+  --clip-live-border: #ff3b30;
+  --clip-live-fg: #ff6b6b;
+
+  --clip-done-bg: #1a3a1a;
+  --clip-done-border: #34c759;
+  --clip-done-fg: #4cfaaa;
+
+  --clip-band-bg: #4a1a1a;
+  --clip-band-border: #ff3b30;
+  --clip-band-fg: #ff6b6b;
+
+  --clip-adgroup-bg: #16283f;
+  --clip-adgroup-border: #5ac8fa;
+  --clip-adgroup-fg: #8ecdfa;
+
+  --clip-adgroup-locked-bg: #3a3010;
+  --clip-adgroup-locked-border: #ffcc00;
+  --clip-adgroup-locked-fg: #ffe082;
+
+  --seg-played: rgb(52 199 89 / 0.3);
+  --seg-onair: rgb(255 59 48 / 0.38);
+  --seg-queued: rgb(255 204 0 / 0.3);
+  --seg-failed: rgb(255 149 0 / 0.45);
+
+  --now-line: #ff3b30;
+  --lock-line: #ff9500;
+  --grid-minor: #e9edf4;
+  --grid-major: #d3dae6;
+  /* Raw elevation values. Deliberately NOT named `--shadow-*`: Tailwind's
+     `--shadow-*` namespace is what the `shadow-lg` utility resolves against,
+     so reusing it here would make the utility point at itself. */
+  --elevation-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --elevation-md: 0 4px 12px -2px rgb(15 23 42 / 0.12);
+  --elevation-lg: 0 18px 40px -12px rgb(15 23 42 / 0.28);
+}
+
+/* ---------- Dark theme (operator default) ------------------------------ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-canvas: #0a0e16;
+  --bg-surface: #111722;
+  --bg-raised: #161d2b;
+  --bg-sunken: #0b1018;
+  --bg-inset: #0e1420;
+  --bg-hover: #1c2434;
+  --bg-active: #243049;
+  --bg-overlay: rgb(2 5 12 / 0.7);
+
+  --fg-default: #e8edf7;
+  --fg-muted: #93a0b8;
+  --fg-subtle: #63718c;
+  --fg-inverted: #0a0e16;
+
+  --border-default: #222c3e;
+  --border-strong: #34405a;
+  --border-subtle: #1a2230;
+
+  --accent: #2f8bff;
+  --accent-hover: #519dff;
+  --accent-fg: #04101f;
+  --accent-soft: rgb(47 139 255 / 0.16);
+  --accent-ring: rgb(47 139 255 / 0.4);
+
+  --ok: #34d96b;
+  --ok-soft: rgb(52 217 107 / 0.15);
+  --warn: #ffab2e;
+  --warn-soft: rgb(255 171 46 / 0.15);
+  --danger: #ff5a4f;
+  --danger-soft: rgb(255 90 79 / 0.15);
+  --info: #5ac8fa;
+  --info-soft: rgb(90 200 250 / 0.15);
+
+  /* The legacy clip palette is dark-background-first, so it survives the theme
+     swap unchanged -- the meaning of a colour must not flip with the theme. */
+  --clip-error-bg: #2a1214;
+  --clip-error-border: #ff5a4f;
+  --clip-error-fg: #ff8f88;
+
+  --clip-scheduled-bg: #2c2413;
+  --clip-scheduled-border: #ffab2e;
+  --clip-scheduled-fg: #ffc773;
+
+  --clip-live-bg: #3a1116;
+  --clip-live-border: #ff3b30;
+  --clip-live-fg: #ff9a93;
+
+  --clip-done-bg: #102a18;
+  --clip-done-border: #34d96b;
+  --clip-done-fg: #6ee7a0;
+
+  --clip-band-bg: #351217;
+  --clip-band-border: #ff3b30;
+  --clip-band-fg: #ff9a93;
+
+  --clip-adgroup-bg: #101f33;
+  --clip-adgroup-border: #5ac8fa;
+  --clip-adgroup-fg: #9fd8ff;
+
+  --clip-adgroup-locked-bg: #2e2712;
+  --clip-adgroup-locked-border: #ffcc00;
+  --clip-adgroup-locked-fg: #ffe082;
+
+  --seg-played: rgb(52 217 107 / 0.28);
+  --seg-onair: rgb(255 59 48 / 0.4);
+  --seg-queued: rgb(255 204 0 / 0.28);
+  --seg-failed: rgb(255 149 0 / 0.5);
+
+  --now-line: #ff4d43;
+  --lock-line: #ffab2e;
+  --grid-minor: #161e2c;
+  --grid-major: #232e42;
+  --elevation-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --elevation-md: 0 6px 16px -4px rgb(0 0 0 / 0.55);
+  --elevation-lg: 0 24px 48px -16px rgb(0 0 0 / 0.7);
+}
+
+/* Tailwind v4 exposes the raw custom properties as utilities. */
+@theme inline {
+  /* Elevation tokens. Without these the `shadow-*` utilities fall back to
+     Tailwind's built-in greys and ignore the theme (FR-DS-01). */
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-raised: var(--bg-raised);
+  --color-sunken: var(--bg-sunken);
+  --color-inset: var(--bg-inset);
+  --color-hover: var(--bg-hover);
+  --color-overlay: var(--bg-overlay);
+
+  --color-default: var(--fg-default);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+  --color-inverted: var(--fg-inverted);
+
+  --color-line: var(--border-default);
+  --color-line-strong: var(--border-strong);
+  --color-line-subtle: var(--border-subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+@layer base {
+  * {
+    border-color: var(--border-default);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg-canvas);
+    color: var(--fg-default);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  /* Scrollbars sized for dense data views, not for consumer web pages. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-subtle);
+    background-clip: content-box;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+@layer utilities {
+  .ply-scroll {
+    overflow: auto;
+  }
+
+  /* Tabular numerals everywhere a number can change in place (clocks, timers,
+     durations) -- a proportional digit swap makes the layout jitter. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  .text-clip {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, var(--grid-minor) 1px, transparent 1px),
+      linear-gradient(to right, var(--grid-major) 1px, transparent 1px);
+  }
+
+  .animate-in-fade {
+    animation: ply-fade 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .animate-slide-up {
+    animation: ply-slide-up 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .animate-pulse-once {
+    animation: ply-pulse-once 900ms ease-out;
+  }
+}
+
+@keyframes ply-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ply-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ply-pulse-once {
+  0% {
+    background-color: var(--accent-soft);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes ply-onair {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes ply-sweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.animate-onair {
+  animation: ply-onair 1.4s ease-in-out infinite;
+}

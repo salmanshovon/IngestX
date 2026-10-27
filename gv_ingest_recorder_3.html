@@ -1,0 +1,1225 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.app{display:flex;flex-direction:column;height:90vh;min-height:600px;background:#fff;font-family:sans-serif;position:relative}
+.topbar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f0f0f5;color:#333;font-size:12px;font-weight:500;border-bottom:1px solid #d1d1d6}
+.topbar .logo{background:#e05a00;color:#fff;padding:2px 8px;border-radius:3px;font-weight:700;font-size:13px;margin-right:6px}
+.topbar .tab{background:#e5e5ea;padding:3px 10px;border-radius:3px;font-size:11px}
+.topbar .tab.active{background:#fff;border-bottom:2px solid #007aff}
+.main{display:flex;flex:1;overflow:hidden}
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{display:flex;align-items:center;gap:6px;padding:5px 10px;background:#fafafa;border-bottom:1px solid #d1d1d6}
+.toolbar button{font-size:11px;padding:3px 8px;background:#fff;color:#48484a;border:1px solid #c7c7cc;border-radius:3px;cursor:pointer}
+.toolbar button:hover{background:#efeff4}
+.time-display{margin-left:auto;font-size:12px;font-weight:600;color:#007aff;font-family:monospace}
+.timeline-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.time-ruler{position:relative;height:30px;background:#f2f2f7;border-bottom:1px solid #d1d1d6;cursor:grab;user-select:none;flex:1}
+.time-ruler.dragging{cursor:grabbing}
+.ruler-tick{position:absolute;top:0;bottom:0;border-left:1px solid #d1d1d6;font-size:9px;color:#8e8e93;padding-left:3px;padding-top:4px;white-space:nowrap;pointer-events:none}
+.ruler-tick.major{border-left-color:#8e8e93;color:#3a3a3c;font-size:10px}
+.channels-container{flex:1;overflow-y:auto}
+.channel-row{display:flex;align-items:stretch;border-bottom:1px solid #e5e5ea;min-height:70px}
+.channel-label{width:200px;flex-shrink:0;background:#fafafa;border-right:1px solid #d1d1d6;padding:8px 10px;display:flex;flex-direction:column;gap:4px;justify-content:center}
+.channel-name{font-size:12px;font-weight:500;color:#1c1c1e;display:flex;align-items:center;gap:6px}
+.channel-status{font-size:10px;color:#8e8e93}
+.rec-btn{font-size:10px;padding:2px 8px;border-radius:2px;border:none;cursor:pointer;font-weight:600;margin-top:2px}
+.rec-btn.idle{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9}
+.rec-btn.idle:hover{background:#c8e6c9}
+.rec-btn.recording{background:#ffebee;color:#c62828;border:1px solid #ffcdd2;animation:recpulse 1.5s infinite}
+@keyframes recpulse{0%,100%{opacity:1}50%{opacity:.7}}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-red{background:#ff3b30}.dot-gray{background:#8e8e93}
+.channel-track{flex:1;position:relative;background:#fff;overflow:hidden;cursor:crosshair}
+.now-line{position:absolute;top:0;bottom:0;width:2px;background:#007aff;opacity:.85;z-index:10;pointer-events:none}
+.clip-block{position:absolute;top:6px;bottom:6px;border-radius:3px;display:flex;align-items:center;padding:0 12px;font-size:10px;font-weight:500;overflow:hidden;user-select:none}
+.clip-block.selected{outline:2px solid #007aff;outline-offset:1px}
+.clip-block.recording{background:#e8f5e9;border:1px solid #34c759;color:#1b5e20}
+.clip-block.done{background:#e3f2fd;border:1px solid #2196f3;color:#0d47a1}
+.clip-block.scheduled{background:#fff8e1;border:1px dashed #ff9500;color:#e65100}
+.clip-block.scheduled.locked{border-style:solid}
+.drag-handle{position:absolute;top:0;bottom:0;width:10px;background:rgba(0,0,0,.07);cursor:ew-resize;display:flex;align-items:center;justify-content:center;z-index:5}
+.drag-handle:hover{background:rgba(0,0,0,.18)}
+.drag-handle::before{content:'⋮';font-size:10px;color:rgba(0,0,0,.35)}
+.drag-handle.lh{left:0;border-radius:3px 0 0 3px}
+.drag-handle.rh{right:0;border-radius:0 3px 3px 0}
+.clip-info{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:10px;min-width:0}
+.clip-time{font-size:9px;opacity:.7;margin-top:1px;font-family:monospace}
+
+.inspector{width:220px;background:#f9f9f9;border-left:1px solid #d1d1d6;overflow-y:auto;flex-shrink:0;font-size:11px}
+.ins-title{padding:8px 12px;font-size:11px;font-weight:600;color:#007aff;border-bottom:1px solid #d1d1d6;background:#f2f2f7}
+.ins-row{display:flex;justify-content:space-between;padding:5px 12px;border-bottom:1px solid #e5e5ea;align-items:center;gap:6px}
+.ins-row label{color:#8e8e93;font-size:10px;white-space:nowrap}
+.ins-row span{color:#1c1c1e;font-size:11px;font-family:monospace}
+.ins-row input{font-size:11px;font-family:monospace;border:1px solid #c7c7cc;border-radius:2px;padding:2px 4px;background:#fff;color:#1c1c1e;width:110px;text-align:right}
+.ins-row input:disabled{background:#f5f5f7;color:#8e8e93;border-color:transparent}
+.ins-row input:focus{outline:none;border-color:#007aff}
+.ins-fn{padding:5px 12px;border-bottom:1px solid #e5e5ea}
+.ins-fn label{color:#8e8e93;font-size:10px;display:block;margin-bottom:3px}
+.ins-fn input{width:100%;font-size:10px;font-family:monospace;border:1px solid #c7c7cc;border-radius:2px;padding:3px 5px;background:#fff;color:#1c1c1e}
+.ins-fn input:disabled{background:#f5f5f7;color:#8e8e93;border-color:transparent}
+.ins-fn input:focus{outline:none;border-color:#007aff}
+.ins-hint{font-size:10px;color:#8e8e93;padding:6px 12px;line-height:1.4;border-bottom:1px solid #e5e5ea}
+
+.status-bar{padding:3px 12px;background:#f2f2f7;border-top:1px solid #d1d1d6;font-size:10px;color:#8e8e93;display:flex;gap:12px}
+
+.ctx-menu{position:absolute;background:#fff;border:1px solid #c7c7cc;border-radius:5px;box-shadow:0 4px 16px rgba(0,0,0,.18);z-index:500;min-width:190px;font-size:12px;overflow:hidden;display:none}
+.ctx-menu.visible{display:block}
+.ctx-item{padding:7px 14px;cursor:pointer;color:#1c1c1e;display:flex;align-items:center;gap:8px}
+.ctx-item:hover{background:#f0f0f5}
+.ctx-sep{height:1px;background:#e5e5ea;margin:3px 0}
+
+.channel-preview-box {
+  width: 100%;
+  height: 150px;          /* Perfectly scaled sidebar multi-view size */
+  background: #000;
+  margin: 6px 0;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #222;
+  position: relative;
+  pointer-events: none;  /* CRITICAL: Prevents accidental right-clicks or player control highlights inside the frame */
+}
+
+  .ruler-date-label {
+    position: absolute; top: 0; font-size: 9px; color: #00bcd4;
+    background: #181828; padding: 0 4px; pointer-events: none;
+    white-space: nowrap; border-left: 1px solid #334; height: 100%;
+    line-height: 14px; z-index: 2;
+  }
+
+</style>
+
+<!-- STRUCTURE ONLY — paste your existing <style> block above this -->
+<!-- ADD to your stylesheet:
+  .ruler-date-label {
+    position: absolute; top: 0; font-size: 9px; color: #00bcd4;
+    background: #181828; padding: 0 4px; pointer-events: none;
+    white-space: nowrap; border-left: 1px solid #334; height: 100%;
+    line-height: 14px; z-index: 2;
+  }
+-->
+
+<div class="app" id="app" style="position:relative;">
+  <div id="loading-overlay"><span id="loading-msg">Fetching channels…</span></div>
+  <div class="topbar">
+    <span class="logo">ITV</span>
+    <span class="tab active">▶ Scheduler</span>
+    <span class="tab">≡ Navigator</span>
+    <span class="tab">⬡ Inspector</span>
+    <div style="margin-left:auto;font-size:10px;color:#00bcd4" id="clock"></div>
+  </div>
+  <div class="main">
+    <div class="content">
+      <div class="toolbar">
+        <button>⏮</button><button>⏭</button>
+        <button onclick="scrollToNow()">⊙ Now</button>
+        <button onclick="zoomIn()">+</button>
+        <button onclick="zoomOut()">−</button>
+        <span style="font-size:11px;color:#888;margin-left:4px">Zoom: <span id="zoomlabel">30min</span></span>
+        <div class="time-display" id="current-time">00:00:00</div>
+      </div>
+      <div class="timeline-area">
+        <div style="display:flex">
+          <div style="width:200px;flex-shrink:0;background:#181828;border-right:1px solid #333;border-bottom:1px solid #333;font-size:10px;color:#666;padding:0 10px;line-height:30px">CHANNEL</div>
+          <div class="time-ruler" id="ruler"></div>
+        </div>
+        <div class="channels-container" id="channels"></div>
+      </div>
+    </div>
+    <div class="inspector" id="inspector">
+      <div class="ins-title">▪ Inspector</div>
+      <div id="ins-empty" class="ins-hint">Right-click on a track to schedule a recording. Click a clip to inspect it.</div>
+      <div id="ins-body" style="display:none">
+        <div class="ins-fn"><label>Filename</label>
+          <div style="font-size:9px;color:#666;margin-bottom:3px" id="ins-prefix-label"></div>
+          <input type="text" id="ins-name-suffix" placeholder="editable suffix" />
+        </div>
+        <div class="ins-row"><label>Channel</label><span id="ins-ch">—</span></div>
+        <div class="ins-row"><label>Start</label><input type="text" id="ins-start" title="YYYY-MM-DD HH:MM:SS" /></div>
+        <div class="ins-row"><label>End</label><input type="text" id="ins-end" title="YYYY-MM-DD HH:MM:SS" /></div>
+        <div class="ins-row"><label>Duration</label><span id="ins-dur">—</span></div>
+        <div class="ins-row"><label>Location</label><span>ITV-SAN FTP</span></div>
+        <div class="ins-row"><label>Status</label><span id="ins-status">—</span></div>
+        <div id="ins-save-row" style="padding:8px 12px;display:none;justify-content:flex-end;gap:8px">
+          <button id="ins-del-btn" onclick="deleteSelected()" style="font-size:10px;padding:3px 10px;background:#ffebee;color:#c62828;border:1px solid #ffcdd2;border-radius:3px;cursor:pointer;display:none">✕ Delete</button>
+          <button id="ins-save-btn" onclick="saveInspector()" style="font-size:10px;padding:3px 14px;background:#1a3a2a;color:#4cfaaa;border:1px solid #2a8a6a;border-radius:3px;cursor:pointer">💾 Save</button>
+        </div>
+        <div id="ins-saving" style="padding:4px 12px;font-size:10px;color:#888;display:none">Saving…</div>
+      </div>
+    </div>
+  </div>
+  <div class="status-bar">
+    <span style="color:#34c759">● Ready</span>
+    <span id="sb-server">—</span>
+    <span id="sb3">00:00:00</span>
+    <span id="sb-rec" style="display:none;color:#ff3b30">● REC</span>
+    <span id="sb-sched" style="display:none;color:#ff9500">◷ SCHEDULED</span>
+  </div>
+  <div class="ctx-menu" id="ctxMenu">
+    <div class="ctx-item" id="ctx-schedule">◷  Schedule Recording Here</div>
+    <div class="ctx-item" id="ctx-duplicate" style="display:none">⧉  Duplicate</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" id="ctx-del" style="color:#ff3b30;display:none">✕  Delete Scheduled Clip</div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIME MODEL — all internal times are epoch milliseconds.
+   This means a clip from 23:55 to 00:05 is just two numbers; no wraparound.
+═══════════════════════════════════════════════════════════════════════════ */
+
+const DEFAULT_DURATION_MS = 10 * 60 * 1000;  // 10 min
+const MIN_DURATION_MS     = 10 * 1000;        // 10 sec minimum gap
+const FILEPATH            = 'D:\\Program\\casperCG\\media';
+let TRACK_WIDTH_PX        = 1453;  // fallback; real value set by measureTrackWidth()
+
+function measureTrackWidth() {
+  const ruler = document.getElementById('ruler');
+  if (ruler) TRACK_WIDTH_PX = ruler.getBoundingClientRect().width || TRACK_WIDTH_PX;
+}
+
+
+let CHANNELS = [];
+const COLOR_MAP = {
+  teal:  {rec:'#1a4a3a',recBorder:'#2a8a6a',recText:'#4cfaaa',done:'#1a2a4a',doneBorder:'#2a4a8a',doneText:'#6abaff'},
+  red:   {rec:'#4a1a1a',recBorder:'#8a2a2a',recText:'#ff6a6a',done:'#1a2a4a',doneBorder:'#2a4a8a',doneText:'#6abaff'},
+  purple:{rec:'#2a1a4a',recBorder:'#6a2a8a',recText:'#cc6aff',done:'#1a2a4a',doneBorder:'#2a4a8a',doneText:'#6abaff'},
+  orange:{rec:'#4a2a1a',recBorder:'#8a5a2a',recText:'#ffaa6a',done:'#1a2a4a',doneBorder:'#2a4a8a',doneText:'#6abaff'}
+};
+const CHANNEL_COLORS = ['teal','red','purple','orange'];
+
+let zoomMs        = 30 * 60 * 1000;
+let zoomIdx       = 3;
+const ZOOM_LEVELS_MS = [5,10,15,30,60,120].map(m => m * 60 * 1000);
+let viewOffsetMs  = Date.now() - zoomMs / 4;
+
+const state           = {};
+let selectedClipRef   = null;
+let ctxTarget         = null;
+/* No polling loops — status is fetched once at start_time and once at end_time.
+   checkedStart / checkedEnd flags on each clip prevent double-firing. */
+
+/* ── time helpers ── */
+const nowMs = () => Date.now();
+
+function pxFromMs(ms)  { return ((ms - viewOffsetMs) / zoomMs) * TRACK_WIDTH_PX; }
+function msFromPx(px)  { return (px / TRACK_WIDTH_PX) * zoomMs; }
+
+function fmtTime(ms) {
+  const d = new Date(ms);
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2,'0')).join(':');
+}
+function fmtDate(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDateTime(ms) { return `${fmtDate(ms)} ${fmtTime(ms)}`; }
+function fmtDur(ms) {
+  const s = Math.floor(ms / 1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  return h > 0 ? [h,m,ss].map(n=>String(n).padStart(2,'0')).join(':')
+               : [m,ss].map(n=>String(n).padStart(2,'0')).join(':');
+}
+
+/** Parse "YYYY-MM-DD HH:MM:SS" or "HH:MM:SS" → epoch ms | null */
+function parseDateTime(str) {
+  str = str.trim();
+  const full = str.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  if (full) {
+    const [,yr,mo,dy,hh,mm,ss] = full.map(Number);
+    return new Date(yr, mo-1, dy, hh, mm, ss).getTime();
+  }
+  const t = str.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (t) { const d = new Date(); d.setHours(+t[1], +t[2], +(t[3]||0), 0); return d.getTime(); }
+  return null;
+}
+
+function getCSRFToken() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : '';
+}
+
+function buildPrefix(date) {
+  const d = date || new Date();
+  const ymd = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  const hms = String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0') + String(d.getSeconds()).padStart(2,'0');
+  return `BTI_${ymd}_${hms}_`;
+}
+function splitFilename(fn) {
+  const m = fn && fn.match(/^(BTI_\d{8}_\d{6}_)(.*)/);
+  return m ? { prefix: m[1], suffix: m[2] } : { prefix: '', suffix: fn || '' };
+}
+
+/* ── overlap / duration helpers ── */
+function hasOverlap(chId, startMs, endMs, excludeIdx = -1) {
+  return state[chId].clips.some((clip, i) => {
+    if (i === excludeIdx) return false;
+    if (clip.status === 'done' && !clip.recording) return false;
+    return startMs < clip.endMs && endMs > clip.startMs;
+  });
+}
+
+function calcDuration(chId, preferredStartMs) {
+  const wantedEnd = preferredStartMs + DEFAULT_DURATION_MS;
+  let nearestStart = Infinity;
+  state[chId].clips.forEach(clip => {
+    if (clip.status === 'done' && !clip.recording) return;
+    if (clip.startMs > preferredStartMs && clip.startMs < nearestStart) nearestStart = clip.startMs;
+  });
+  if (nearestStart === Infinity || wantedEnd <= nearestStart) return DEFAULT_DURATION_MS;
+  const gapMs = nearestStart - preferredStartMs;
+  return gapMs <= MIN_DURATION_MS ? null : gapMs - MIN_DURATION_MS;
+}
+
+/* ── API helpers ── */
+async function apiPost(url, body) {
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCSRFToken()}, body:JSON.stringify(body) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+async function apiPatch(url, body) {
+  const r = await fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json','X-CSRFToken':getCSRFToken()}, body:JSON.stringify(body) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+async function apiGet(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function applyServerData(clip, data) {
+  if (data.id       != null) clip.serverId     = data.id;
+  if (data.filename)         clip.filename     = data.filename;
+  if (data.filepath)         clip.filepath     = data.filepath;
+  if (data.status)           clip.serverStatus = data.status;
+}
+
+/* ── Map server status string → local clip status ── */
+function serverStatusToLocal(srvStatus) {
+  switch ((srvStatus || '').toUpperCase()) {
+    case 'SCHEDULED': return 'scheduled';
+    case 'RECORDING': return 'recording';
+    case 'DONE':
+    case 'FAILED':
+    case 'CANCELLED': return 'done';
+    default:          return 'done';
+  }
+}
+
+/* ── Build a clip object from a server recording row ── */
+function clipFromServerRecord(rec, chId) {
+  const startMs = new Date(rec.start_time).getTime();
+  const endMs   = new Date(rec.end_time).getTime();
+  const local   = serverStatusToLocal(rec.status);
+  return {
+    startMs,
+    endMs,
+    status:      local,
+    recording:   local === 'recording',
+    filename:    rec.filename || '',
+    filepath:    rec.filepath || '',
+    serverId:    rec.id,
+    serverStatus:rec.status,
+    startLocked: local === 'scheduled' && startMs - nowMs() < 30000,
+    fromServer:  true   // flag: do not duplicate on re-load
+  };
+}
+
+/* ── Load today/yesterday/tomorrow recordings from server ── */
+async function loadServerRecordings() {
+  // Build date range: yesterday 00:00 → tomorrow 23:59:59
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0,0,0,0);
+  const tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);   tomorrow.setHours(23,59,59,999);
+
+  let records = [];
+  try {
+    // Try fetching with date range params; adjust param names to match your Django API
+    const url = `/api/recordings`;
+    records = await apiGet(url);
+    if (!Array.isArray(records)) records = records.results || [];
+  } catch (err) {
+    console.warn('Could not load server recordings:', err.message);
+    return;
+  }
+
+  records.forEach(rec => {
+    if (!rec.start_time || !rec.end_time) return;
+
+    // Match to channel by port id
+    const ch = CHANNELS.find(c => c.portId === rec.port || c.portId === rec.port_id);
+    if (!ch) return;
+
+    const st = state[ch.id];
+    // Skip if we already have this serverId (e.g. just scheduled it this session)
+    if (st.clips.some(c => c.serverId === rec.id)) return;
+
+    const clip = clipFromServerRecord(rec, ch.id);
+    const idx  = st.clips.push(clip) - 1;
+
+    // If it's currently recording per server, reflect that in channel state
+    if (clip.recording && !st.recording) {
+      st.recording    = true;
+      st.activeClip   = idx;
+      st.startFilename = clip.filename;
+    }
+
+    // Schedule status checks at the appropriate moments
+    if (clip.status === 'scheduled' && clip.startMs <= nowMs()) {
+      clip.status      = 'polling';
+      clip.startLocked = true;
+      scheduleStatusCheck(ch.id, idx, 'start');
+    } else if (clip.status === 'scheduled') {
+      // Will be caught by the clock tick at start_time naturally;
+      // but also pre-schedule so it works even if the tab stays open
+      scheduleStatusCheck(ch.id, idx, 'start');
+      scheduleStatusCheck(ch.id, idx, 'end');
+    } else if (clip.status === 'recording') {
+      // Already started — just watch for end
+      scheduleStatusCheck(ch.id, idx, 'end');
+    }
+  });
+
+  CHANNELS.forEach(ch => renderClips(ch.id));
+  updateRecordingCount();
+  updateScheduledCount();
+  buildChannels(); // rebuild labels to reflect any newly-active recordings
+}
+
+/* ── Channel loading ── */
+async function loadChannels() {
+  buildRuler();
+  try {
+    const r = await fetch('/api/record_ports/');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const ports = await r.json();
+    CHANNELS = ports.map((p, i) => ({
+      id:           'CH' + p.id + '-' + p.name,
+      label:        p.display_name || p.name,
+      color:        CHANNEL_COLORS[i % CHANNEL_COLORS.length],
+      channelIndex: p.channel_index,
+      portId:       p.id,
+      isRecording:  p.is_recording,
+      serverName:   p.server?.name || ''
+    }));
+    CHANNELS.forEach(ch => { state[ch.id] = { recording: ch.isRecording, clips: [], activeClip: null }; });
+    const servers = [...new Set(CHANNELS.map(c => c.serverName).filter(Boolean))];
+    document.getElementById('sb-server').textContent = servers.join(', ') || 'ITV';
+    document.getElementById('loading-overlay').style.display = 'none';
+    scrollToNow(); buildRuler(); buildChannels(); updateClock();
+    await loadServerRecordings();
+  } catch (err) {
+    document.getElementById('loading-msg').textContent = 'Failed to load channels: ' + err.message + ' — using demo channels.';
+    setTimeout(async () => {
+      CHANNELS = [
+        { id:'CH1-ING_3', label:'CH1 - ING_3', color:'teal',   channelIndex:1, portId:1, isRecording:false, serverName:'Demo' },
+        { id:'CH2-ING_4', label:'CH2 - ING_4', color:'red',    channelIndex:2, portId:2, isRecording:false, serverName:'Demo' }
+      ];
+      CHANNELS.forEach(ch => { state[ch.id] = { recording:false, clips:[], activeClip:null }; });
+      document.getElementById('sb-server').textContent = 'Demo';
+      document.getElementById('loading-overlay').style.display = 'none';
+      scrollToNow(); buildRuler(); buildChannels(); updateClock();
+      await loadServerRecordings();
+    }, 1500);
+  }
+}
+
+/* ── Ruler (date-aware) ── */
+function buildRuler() {
+  const ruler = document.getElementById('ruler');
+  ruler.innerHTML = '';
+  const zoomMin = zoomMs / 60000;
+  const stepMs  = (zoomMin <= 15 ? 5 : zoomMin <= 60 ? 15 : 30) * 60000;
+  const first   = Math.ceil(viewOffsetMs / stepMs) * stepMs;
+  let lastDate  = null;
+
+  for (let t = first; t <= viewOffsetMs + zoomMs + stepMs; t += stepMs) {
+    const x = pxFromMs(t);
+    if (x < -60 || x > TRACK_WIDTH_PX + 60) continue;
+
+    const dateStr = fmtDate(t);
+    if (dateStr !== lastDate) {
+      lastDate = dateStr;
+      const dl = document.createElement('div');
+      dl.className    = 'ruler-date-label';
+      dl.style.left   = Math.max(0, x) + 'px';
+      dl.textContent  = dateStr;
+      ruler.appendChild(dl);
+    }
+
+    const d       = new Date(t);
+    const isMajor = d.getMinutes() === 0 && d.getSeconds() === 0;
+    const tick    = document.createElement('div');
+    tick.className  = 'ruler-tick' + (isMajor ? ' major' : '');
+    tick.style.left = x + 'px';
+    tick.textContent = fmtTime(t);
+    ruler.appendChild(tick);
+  }
+
+  measureTrackWidth();
+}
+
+let rulerDrag = null;
+function startPan(e, el) {
+  if (e.button !== 0) return;
+  rulerDrag = { startX: e.clientX, startOffset: viewOffsetMs, el };
+  el.classList.add('dragging');
+  e.preventDefault();
+}
+document.getElementById('ruler').addEventListener('mousedown', e => startPan(e, e.currentTarget));
+document.getElementById('channels').addEventListener('mousedown', e => {
+  if (e.target.classList.contains('channel-track')) startPan(e, e.target);
+});
+document.addEventListener('mousemove', e => {
+  if (!rulerDrag) return;
+  viewOffsetMs = rulerDrag.startOffset - msFromPx(e.clientX - rulerDrag.startX);
+  buildRuler(); CHANNELS.forEach(ch => renderClips(ch.id));
+});
+document.addEventListener('mouseup', () => {
+  if (rulerDrag) { rulerDrag.el.classList.remove('dragging'); rulerDrag = null; }
+});
+window.addEventListener('resize', () => {
+  measureTrackWidth();
+  buildRuler(); CHANNELS.forEach(ch => renderClips(ch.id));
+});
+
+/* ── Channel rows ── */
+function buildChannels() {
+  const container = document.getElementById('channels');
+  container.innerHTML = '';
+  CHANNELS.forEach(ch => {
+    const st    = state[ch.id];
+    const row   = document.createElement('div'); row.className = 'channel-row';
+    const label = document.createElement('div'); label.className = 'channel-label';
+    const streamKey = (ch.id || '').split('-')[1] || '';
+
+    label.innerHTML = `
+      <div class="channel-name">
+        <span class="dot ${st.recording ? 'dot-red' : 'dot-gray'}"></span>
+        <span style="font-size:9px">${ch.label}</span>
+      </div>
+      <div class="channel-status">${st.recording ? '● RECORDING' : 'IDLE'}</div>
+      <div class="channel-preview-box" id="preview-box-${ch.id}"></div>
+      <button class="rec-btn ${st.recording ? 'recording' : 'idle'}" onclick="toggleRec('${ch.id}')">
+        ${st.recording ? '■ STOP REC' : '● START REC'}
+      </button>
+    `;
+
+    const track = document.createElement('div'); track.className = 'channel-track'; track.id = 'track-' + ch.id;
+    const nl    = document.createElement('div'); nl.className = 'now-line'; nl.id = 'nowline-' + ch.id;
+    track.appendChild(nl);
+    track.addEventListener('contextmenu', e => { e.preventDefault(); showCtx(e, ch.id); });
+    row.appendChild(label); row.appendChild(track);
+    container.appendChild(row);
+    if (streamKey) initPreviewFrame(`preview-box-${ch.id}`, streamKey);
+    renderClips(ch.id);
+  });
+}
+
+function initPreviewFrame(containerId, streamKey) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const frame = document.createElement('iframe');
+  frame.src = `https://itvstreamx.duckdns.org:8889/${streamKey}/?autoplay=true`;
+  frame.setAttribute('allow', 'autoplay');
+  frame.style.cssText = 'width:100%;height:100%;border:none;';
+  el.appendChild(frame);
+}
+
+/* ── Render clips onto track ── */
+function renderClips(chId) {
+  const track = document.getElementById('track-' + chId);
+  if (!track) return;
+  track.querySelectorAll('.clip-block').forEach(e => e.remove());
+  const ch = CHANNELS.find(c => c.id === chId);
+  if (!ch) return;
+
+  state[chId].clips.forEach((clip, i) => {
+    const left = pxFromMs(clip.startMs);
+    const w    = pxFromMs(clip.endMs) - pxFromMs(clip.startMs);
+    if (left + w < 0 || left > TRACK_WIDTH_PX) return;
+
+    const block = document.createElement('div');
+    const isSel = selectedClipRef && selectedClipRef.chId === chId && selectedClipRef.idx === i;
+
+    // 'polling' is a transient state (server took over scheduled) — show as scheduled-locked
+    const displayStatus = clip.status === 'polling' ? 'scheduled' : clip.status;
+
+// REPLACE WITH:
+    if (displayStatus === 'error') {
+      block.className = 'clip-block done' + (isSel ? ' selected' : '');
+      block.style.cssText = `background:#3a1a1a;border-color:#ff3b30;color:#ff6b6b;`;
+    } else if (displayStatus === 'scheduled') {
+      block.className = 'clip-block scheduled' + (clip.startLocked ? ' locked' : '') + (isSel ? ' selected' : '');
+      block.style.cssText = `background:#fff8e1;border-color:#ff9500;color:#e65100;`; // yellow
+    } else if (clip.recording || displayStatus === 'recording') {
+      block.className = 'clip-block recording' + (isSel ? ' selected' : '');
+      block.style.cssText = `background:#4a1a1a;border-color:#ff3b30;color:#ff6b6b;`; // red
+    } else {
+      block.className = 'clip-block done' + (isSel ? ' selected' : '');
+      block.style.cssText = `background:#1a3a1a;border-color:#34c759;color:#4cfaaa;`; // green
+    }
+
+    block.style.left  = Math.max(0, left) + 'px';
+    block.style.width = Math.max(20, left < 0 ? w + left : w) + 'px';
+
+    const info = document.createElement('div'); info.className = 'clip-info';
+    const tag  = displayStatus === 'scheduled' ? '◷ ' : '';
+    info.innerHTML = `
+      <div>${tag}${clip.filename || ''}</div>
+      <div class="clip-time">${fmtTime(clip.startMs)} — ${fmtTime(clip.endMs)} (${fmtDur(clip.endMs - clip.startMs)})</div>
+    `;
+    block.appendChild(info);
+
+    if (clip.recording || displayStatus === 'scheduled') {
+      const rh = document.createElement('div'); rh.className = 'drag-handle rh'; rh.title = 'Drag to adjust end';
+      rh.addEventListener('mousedown', e => { e.stopPropagation(); startClipDrag(e, chId, i, 'end'); });
+      block.appendChild(rh);
+    }
+    if (displayStatus === 'scheduled' && !clip.startLocked) {
+      const lh = document.createElement('div'); lh.className = 'drag-handle lh'; lh.title = 'Drag to adjust start';
+      lh.addEventListener('mousedown', e => { e.stopPropagation(); startClipDrag(e, chId, i, 'start'); });
+      block.appendChild(lh);
+    }
+    block.addEventListener('click', e => { e.stopPropagation(); selectClip(chId, i); });
+    track.appendChild(block);
+  });
+}
+
+/* ── Inspector ── */
+function selectClip(chId, idx) {
+  selectedClipRef = { chId, idx };
+  const clip = state[chId].clips[idx];
+  if (!clip) { clearInspector(); return; }
+
+  document.getElementById('ins-empty').style.display = 'none';
+  document.getElementById('ins-body').style.display  = '';
+
+  const { prefix, suffix } = splitFilename(clip.filename);
+  document.getElementById('ins-prefix-label').textContent = prefix || '(no prefix)';
+  document.getElementById('ins-name-suffix').value = suffix;
+
+  const isScheduledEditable = clip.status === 'scheduled' && !clip.startLocked;
+  const isRecording         = !!clip.recording;
+  const canEditFilename     = isScheduledEditable || isRecording;
+
+  document.getElementById('ins-name-suffix').disabled = !canEditFilename;
+  document.getElementById('ins-ch').textContent = chId;
+
+  const stEl = document.getElementById('ins-start');
+  stEl.value    = fmtDateTime(clip.startMs);
+  stEl.disabled = !isScheduledEditable;
+
+  const enEl = document.getElementById('ins-end');
+  enEl.value    = fmtDateTime(clip.endMs);
+  enEl.disabled = !isScheduledEditable;
+
+  const durMs = clip.recording ? (nowMs() - clip.startMs) : (clip.endMs - clip.startMs);
+  document.getElementById('ins-dur').textContent = fmtDur(durMs);
+
+  const stSp = document.getElementById('ins-status');
+  if (clip.status === 'scheduled' || clip.status === 'polling') {
+    stSp.textContent = clip.startLocked ? '◷ Waiting' : '◷ Scheduled';
+    stSp.style.color = '#ff9500';
+  } else if (clip.recording) {
+    stSp.textContent = '● REC'; stSp.style.color = '#ff5252';
+  } else if (clip.status === 'error') {
+    stSp.textContent = '⚠ ' + (clip.statusError || 'Status error'); stSp.style.color = '#ff3b30';
+  } else {
+    stSp.textContent = 'Done'; stSp.style.color = '#4caf50';
+  }
+
+// REPLACE WITH:
+  const saveRow = document.getElementById('ins-save-row');
+  saveRow.dataset.canShow = (canEditFilename || isScheduledEditable) ? 'true' : 'false';
+  saveRow.style.display = 'none';  // always hidden until user edits
+  document.getElementById('ins-del-btn').style.display = isScheduledEditable ? '' : 'none';
+  document.getElementById('ins-saving').style.display  = 'none';
+
+  // Attach dirty listeners (replace old ones by cloning)
+  ['ins-name-suffix', 'ins-start', 'ins-end'].forEach(id => {
+    const el = document.getElementById(id);
+    const fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
+    fresh.addEventListener('input', markDirty);
+  });
+
+  CHANNELS.forEach(ch => renderClips(ch.id));
+}
+
+function clearInspector() {
+  selectedClipRef = null;
+  document.getElementById('ins-empty').style.display = '';
+  document.getElementById('ins-body').style.display  = 'none';
+  CHANNELS.forEach(ch => renderClips(ch.id));
+}
+
+// ADD after clearInspector():
+function markDirty() {
+  const saveRow = document.getElementById('ins-save-row');
+  if (saveRow.dataset.canShow === 'true') saveRow.style.display = 'flex';
+}
+function markClean() {
+  document.getElementById('ins-save-row').style.display = 'none';
+}
+
+async function saveInspector() {
+  if (!selectedClipRef) return;
+  const { chId, idx } = selectedClipRef;
+  const clip = state[chId].clips[idx];
+  if (!clip) return;
+
+  const isScheduledEditable = clip.status === 'scheduled' && !clip.startLocked;
+  const isRecording         = !!clip.recording;
+
+  const prefix      = document.getElementById('ins-prefix-label').textContent === '(no prefix)' ? ''
+                      : document.getElementById('ins-prefix-label').textContent;
+  const suffix      = document.getElementById('ins-name-suffix').value.trim();
+  const newFilename = prefix + suffix;
+
+  let newStartMs = clip.startMs, newEndMs = clip.endMs;
+  if (isScheduledEditable) {
+    const sm = parseDateTime(document.getElementById('ins-start').value);
+    const em = parseDateTime(document.getElementById('ins-end').value);
+    if (sm === null || em === null || sm >= em) { alert('Invalid start/end times.'); return; }
+    if (sm < nowMs() - 5000) { alert('Start time is in the past.'); return; }
+    if (hasOverlap(chId, sm, em, idx)) { alert('Time overlaps with another recording.'); return; }
+    newStartMs = sm; newEndMs = em;
+  }
+
+  document.getElementById('ins-saving').style.display   = '';
+  document.getElementById('ins-save-row').style.display = 'none';
+
+  const payload = { filename: newFilename };
+  if (isScheduledEditable) {
+    payload.start_time = new Date(newStartMs).toISOString();
+    payload.end_time   = new Date(newEndMs).toISOString();
+  } else if (isRecording) {
+    const em = parseDateTime(document.getElementById('ins-end').value);
+    if (em !== null && em > clip.startMs) {
+      payload.end_time = new Date(em).toISOString();
+      newEndMs = em;
+    }
+  }
+
+  try {
+    if (clip.serverId) {
+      const data = await apiPatch(`/api/recordings/${clip.serverId}/`, payload);
+      applyServerData(clip, data);
+      if (data.start_time) newStartMs = new Date(data.start_time).getTime();
+      if (data.end_time)   newEndMs   = new Date(data.end_time).getTime();
+    } else {
+      clip.filename = newFilename;
+    }
+    clip.startMs = newStartMs; clip.endMs = newEndMs;
+  } catch (err) { alert('Save failed: ' + err.message); }
+
+// REPLACE WITH:
+  document.getElementById('ins-saving').style.display = 'none';
+  markClean();
+  selectClip(chId, idx); renderClips(chId);
+}
+
+function deleteSelected() {
+  if (!selectedClipRef) return;
+  const { chId, idx } = selectedClipRef;
+  const clip = state[chId].clips[idx];
+  if (!clip || clip.status !== 'scheduled' || clip.startLocked) return;
+  if (clip.serverId)
+    fetch(`/api/recordings/${clip.serverId}/`, { method:'DELETE', headers:{'X-CSRFToken':getCSRFToken()} }).catch(()=>{});
+  state[chId].clips.splice(idx, 1);
+  clearInspector(); updateScheduledCount();
+}
+
+/* ── Context menu ── */
+function showCtx(e, chId) {
+  const appRect  = document.getElementById('app').getBoundingClientRect();
+  const trackRect = document.getElementById('track-' + chId).getBoundingClientRect();
+  const clickMs  = viewOffsetMs + msFromPx(e.clientX - trackRect.left);
+  const nearIdx  = state[chId].clips.findIndex(c =>
+    c.status === 'scheduled' && !c.startLocked &&
+    clickMs >= c.startMs - 30000 && clickMs <= c.endMs + 30000
+  );
+  const clipIdx  = state[chId].clips.findIndex(c => clickMs >= c.startMs && clickMs <= c.endMs);
+  ctxTarget = { chId, clickMs, nearIdx, clipIdx };
+  
+  // Use the SAME condition for both
+  const showDelete = nearIdx >= 0;
+  document.getElementById('ctx-del').style.display = showDelete ? '' : 'none';
+  document.getElementById('ctx-duplicate').style.display = showDelete ? '' : 'none';
+  
+  const menu = document.getElementById('ctxMenu');
+  menu.style.left = (e.clientX - appRect.left) + 'px';
+  menu.style.top  = (e.clientY - appRect.top)  + 'px';
+  menu.classList.add('visible');
+}
+
+document.getElementById('ctx-schedule').addEventListener('click', async () => {
+  closeCtx();
+  if (!ctxTarget) return;
+  const { chId, clickMs } = ctxTarget;
+  const ch = CHANNELS.find(c => c.id === chId);
+
+  // Use the clicked time directly (future scheduling at any point on timeline).
+  // Only floor to now if the click was in the past.
+  const preferredStart = Math.max(clickMs, nowMs());
+  const dur = calcDuration(chId, preferredStart);
+
+  if (dur === null) {
+    alert('Cannot schedule: less than 10 seconds available before the next recording.');
+    return;
+  }
+
+  const endMs    = preferredStart + dur;
+  const prefix   = buildPrefix(new Date(preferredStart));
+  const suffix   = ch ? ch.id : 'clip';
+  const filename = prefix + suffix;
+
+  // Add clip locally immediately for responsive UI
+  const clipObj = {
+    startMs:     preferredStart,
+    endMs,
+    status:      'scheduled',
+    recording:   false,
+    filename,
+    filepath:    FILEPATH,
+    startLocked: false,
+    serverId:    null
+  };
+  const idx = state[chId].clips.push(clipObj) - 1;
+  renderClips(chId); updateScheduledCount(); selectClip(chId, idx);
+
+  // POST to server
+  try {
+    const data = await apiPost('/api/recordings/', {
+      port:       ch ? ch.portId : null,
+      filename,
+      filepath:   FILEPATH,
+      start_time: new Date(preferredStart).toISOString(),
+      end_time:   new Date(endMs).toISOString(),
+      status:     'SCHEDULED'
+    });
+    applyServerData(clipObj, data);
+    if (data.start_time) clipObj.startMs = new Date(data.start_time).getTime();
+    if (data.end_time)   clipObj.endMs   = new Date(data.end_time).getTime();
+    renderClips(chId);
+    if (selectedClipRef && selectedClipRef.chId === chId && selectedClipRef.idx === idx)
+      selectClip(chId, idx);
+  } catch (err) {
+    console.warn('Schedule POST failed:', err.message);
+  }
+});
+
+document.getElementById('ctx-duplicate').addEventListener('click', async () => {
+  closeCtx();
+  if (!ctxTarget || ctxTarget.clipIdx < 0) return;
+  const { chId, clipIdx } = ctxTarget;
+  const ch       = CHANNELS.find(c => c.id === chId);
+  const original = state[chId].clips[clipIdx];
+  if (!original) return;
+
+  const duration = original.endMs - original.startMs;
+  const newStart = original.endMs + MIN_DURATION_MS; // 10s gap, reuses existing constant
+  const newEnd   = newStart + duration;
+
+  if (hasOverlap(chId, newStart, newEnd)) {
+    alert('Cannot duplicate: not enough room after this clip before the next one.');
+    return;
+  }
+
+  const { suffix } = splitFilename(original.filename);
+  const prefix   = buildPrefix(new Date(newStart));
+  const filename = prefix + suffix;
+
+  const clipObj = {
+    startMs:     newStart,
+    endMs:       newEnd,
+    status:      'scheduled',
+    recording:   false,
+    filename,
+    filepath:    FILEPATH,
+    startLocked: false,
+    serverId:    null
+  };
+  const idx = state[chId].clips.push(clipObj) - 1;
+  renderClips(chId); updateScheduledCount(); selectClip(chId, idx);
+
+  try {
+    const data = await apiPost('/api/recordings/', {
+      port:       ch ? ch.portId : null,
+      filename,
+      filepath:   FILEPATH,
+      start_time: new Date(newStart).toISOString(),
+      end_time:   new Date(newEnd).toISOString(),
+      status:     'SCHEDULED'
+    });
+    applyServerData(clipObj, data);
+    if (data.start_time) clipObj.startMs = new Date(data.start_time).getTime();
+    if (data.end_time)   clipObj.endMs   = new Date(data.end_time).getTime();
+    renderClips(chId);
+    if (selectedClipRef && selectedClipRef.chId === chId && selectedClipRef.idx === idx)
+      selectClip(chId, idx);
+  } catch (err) {
+    console.warn('Duplicate POST failed:', err.message);
+  }
+});
+
+document.getElementById('ctx-del').addEventListener('click', () => {
+  closeCtx();
+  if (!ctxTarget || ctxTarget.nearIdx < 0) return;
+  const clip = state[ctxTarget.chId].clips[ctxTarget.nearIdx];
+  if (clip?.serverId)
+    fetch(`/api/recordings/${clip.serverId}/`, { method:'DELETE', headers:{'X-CSRFToken':getCSRFToken()} }).catch(()=>{});
+  state[ctxTarget.chId].clips.splice(ctxTarget.nearIdx, 1);
+  clearInspector(); updateScheduledCount();
+});
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('ctxMenu').contains(e.target)) closeCtx();
+});
+function closeCtx() { document.getElementById('ctxMenu').classList.remove('visible'); }
+
+/* ── Clip drag ── */
+let clipDrag = null;
+function startClipDrag(e, chId, idx, side) {
+  e.preventDefault();
+  const clip = state[chId].clips[idx];
+  clipDrag = { chId, idx, side, startX: e.clientX, origStart: clip.startMs, origEnd: clip.endMs };
+  document.addEventListener('mousemove', onClipDrag);
+  document.addEventListener('mouseup',   endClipDrag);
+}
+function onClipDrag(e) {
+  if (!clipDrag) return;
+  const dMs  = msFromPx(e.clientX - clipDrag.startX);
+  const clip = state[clipDrag.chId].clips[clipDrag.idx];
+  if (clipDrag.side === 'end') {
+    const newEnd = Math.max(clip.startMs + 1000, Math.round(clipDrag.origEnd + dMs));
+    if (!hasOverlap(clipDrag.chId, clip.startMs, newEnd, clipDrag.idx)) clip.endMs = newEnd;
+  } else {
+    const newStart = Math.min(Math.max(nowMs(), Math.round(clipDrag.origStart + dMs)), clip.endMs - 1000);
+    if (!hasOverlap(clipDrag.chId, newStart, clip.endMs, clipDrag.idx)) clip.startMs = newStart;
+  }
+  renderClips(clipDrag.chId); selectClip(clipDrag.chId, clipDrag.idx);
+}
+// REPLACE WITH:
+function endClipDrag() {
+  if (clipDrag) {
+    const { chId, idx } = clipDrag;
+    const clip = state[chId]?.clips[idx];
+    if (selectedClipRef?.chId === chId && selectedClipRef?.idx === idx) {
+      if (clip?.recording) {
+        // Live recording: auto-PATCH the new end time silently, no Save button
+        if (clip.serverId) {
+          apiPatch(`/api/recordings/${clip.serverId}/`, {
+            end_time: new Date(clip.endMs).toISOString()
+          }).then(data => {
+            if (data) applyServerData(clip, data);
+            selectClip(chId, idx);
+          }).catch(err => console.warn('End-time drag PATCH failed:', err.message));
+        }
+      } else {
+        const saveRow = document.getElementById('ins-save-row');
+        if (saveRow.dataset.canShow === 'true') saveRow.style.display = 'flex';
+      }
+    }
+  }
+  clipDrag = null;
+  document.removeEventListener('mousemove', onClipDrag);
+  document.removeEventListener('mouseup',   endClipDrag);
+}
+
+/* ── Manual recording toggle ──────────────────────────────────────────────
+   START: calls /api/start_record/ with the same payload shape as scheduling
+          (filename, filepath, start_time, end_time, status, port, channel).
+          No pre-create in /api/recordings/ — the backend creates the record
+          and returns it; we read the id from the response.
+   STOP:  calls /api/stop_record/, then PATCHes /api/recordings/<id>/.
+──────────────────────────────────────────────────────────────────────────── */
+async function toggleRec(chId) {
+  const st = state[chId];
+  const ch = CHANNELS.find(c => c.id === chId);
+  if (!ch) return;
+
+  if (!st.recording) {
+    /* ── START ── */
+    const startMs  = nowMs();
+    const endMs    = startMs + DEFAULT_DURATION_MS;
+
+    if (hasOverlap(chId, startMs, endMs)) {
+      alert('Cannot start recording: overlaps with an existing recording on this channel.');
+      return;
+    }
+
+    const prefix   = buildPrefix(new Date(startMs));
+    const filename = prefix + ch.id;
+
+    let responseData = null;
+    try {
+      responseData = await apiPost('/api/start_record/', {
+        port:       ch.portId,
+        filename,
+        filepath:   FILEPATH,
+        start_time: new Date(startMs).toISOString(),
+        end_time:   new Date(endMs).toISOString(),
+        status:     'RECORDING'
+      });
+      
+      
+    } catch (err) {
+      alert('Start recording failed: ' + err.message);
+      return;
+    }
+
+    // FIXED: Access id from task_data, not from root
+    const serverId = responseData?.task_data?.id ?? null;
+    
+
+    const clipObj = {
+      startMs,
+      endMs,
+      recording:   true,
+      filename,
+      filepath:    FILEPATH,
+      status:      'recording',
+      serverId:    serverId  // This will now have the correct ID
+    };
+    
+    if (responseData) applyServerData(clipObj, responseData);
+
+    const idx       = st.clips.push(clipObj) - 1;
+    st.activeClip   = idx;
+    st.recording    = true;
+    st.startFilename = filename;
+    st.recordingServerId = serverId;  // Store the correct ID
+
+    // Schedule a status check at end_time to mark the clip as done
+    scheduleStatusCheck(chId, idx, 'end');
+
+    updateRecordingCount(); buildChannels(); selectClip(chId, idx);
+
+  } else {
+    /* ── STOP ── */
+    const stopMs = nowMs();
+    const end_time = new Date(stopMs).toISOString()
+    const clip   = st.clips[st.activeClip];
+    
+    // Use the stored recording ID (now it will be correct)
+    const recordingId = st.recordingServerId || clip?.serverId;
+    
+    
+    if (!recordingId) {
+      alert('Cannot stop recording: No recording ID found');
+      return;
+    }
+
+    try {
+      await apiPost('/api/stop_record/', {
+        id: recordingId,
+        filename: st.startFilename || clip?.filename,
+        end_time: end_time
+      });
+    } catch (err) {
+      alert('Stop recording failed: ' + err.message);
+      return;
+    }
+
+    if (clip) {
+      clip.endMs = Math.max(stopMs, clip.startMs + 1000);
+      clip.recording = false;
+      clip.status = 'polling';
+      // Don't set checkedEnd — let scheduleStatusCheck confirm with server
+    }
+    // Confirm server reached DONE/FAILED/CANCELLED, retry up to 5 times
+    if (clip) {
+      const stopIdx = st.clips.indexOf(clip);
+      if (stopIdx >= 0) scheduleStatusCheck(chId, stopIdx, 'end');
+    }
+    
+    st.recording = false; 
+    st.activeClip = null; 
+    delete st.startFilename;
+    delete st.recordingServerId;
+
+    updateRecordingCount(); buildChannels();
+  }
+}
+
+/* ── One-shot status check: fires at start_time or end_time, not on a loop.
+   'moment' is 'start' or 'end'. Uses setTimeout calculated from now.
+   Retries up to 3 times with 2s spacing if the server status hasn't
+   yet transitioned (backend may have a small processing delay). ── */
+// REPLACE WITH:
+function scheduleStatusCheck(chId, idx, moment, retries = 5, retryDelays = [500, 1000, 1500, 2000, 2500]) {
+  const clip = state[chId]?.clips[idx];
+  if (!clip || !clip.serverId) return;
+
+  const flagKey = moment === 'start' ? 'checkedStart' : 'checkedEnd';
+  if (clip[flagKey]) return;
+
+  const targetMs = moment === 'start' ? clip.startMs : clip.endMs;
+  const delayMs  = Math.max(0, targetMs - nowMs());
+
+  const attempt = async () => {
+    const c = state[chId]?.clips[idx];
+    if (!c || c[flagKey] || c.serverId !== clip.serverId) return;
+
+    const doRetry = () => {
+      if (retries > 0) {
+        const delay = retryDelays[retryDelays.length - retries] ?? 2000;
+        setTimeout(
+          () => scheduleStatusCheck(chId, idx, moment, retries - 1, retryDelays),
+          delay
+        );
+      } else {
+        // All retries exhausted — mark error on clip
+        c.statusError = `Server did not ${moment === 'start' ? 'start' : 'finish'} as expected`;
+        c.checkedStart = moment === 'start' ? true : c.checkedStart;
+        c.checkedEnd   = moment === 'end'   ? true : c.checkedEnd;
+        c.status = 'error';
+        c.recording = false;
+        const st = state[chId];
+        if (st.activeClip === idx) {
+          st.recording = false; st.activeClip = null;
+          delete st.startFilename;
+          updateRecordingCount(); buildChannels();
+        }
+        renderClips(chId); updateScheduledCount();
+        if (selectedClipRef?.chId === chId && selectedClipRef?.idx === idx) selectClip(chId, idx);
+      }
+    };
+
+    try {
+      const data      = await apiGet(`/api/recordings/${clip.serverId}/`);
+      const srvStatus = (data.status || '').toUpperCase();
+
+      if (data.filename) c.filename = data.filename;
+      if (data.filepath) c.filepath = data.filepath;
+
+      if (moment === 'start') {
+        if (srvStatus === 'RECORDING') {
+          c.checkedStart = true;
+          c.recording    = true;
+          c.status       = 'recording';
+          const st = state[chId];
+          if (!st.recording) {
+            st.recording     = true;
+            st.activeClip    = idx;
+            st.startFilename = c.filename;
+            updateRecordingCount(); buildChannels();
+          }
+          scheduleStatusCheck(chId, idx, 'end');
+        } else {
+          doRetry(); return;
+        }
+      } else {
+        if (srvStatus === 'COMPLETED' || srvStatus === 'FAILED' || srvStatus === 'STOPPED') {
+          c.checkedEnd = true;
+          c.recording  = false;
+          c.status     = 'done';
+          if (data.end_time) c.endMs = new Date(data.end_time).getTime();
+          const st = state[chId];
+          if (st.activeClip === idx) {
+            st.recording  = false;
+            st.activeClip = null;
+            delete st.startFilename;
+            updateRecordingCount(); buildChannels();
+          }
+        } else {
+          doRetry(); return;
+        }
+      }
+
+      renderClips(chId);
+      if (selectedClipRef?.chId === chId && selectedClipRef?.idx === idx) selectClip(chId, idx);
+    } catch (err) {
+      console.warn(`Status check failed for recording ${clip.serverId}:`, err.message);
+      doRetry();
+    }
+  };
+
+  setTimeout(attempt, delayMs);
+}
+
+/* ── Counts & zoom ── */
+function updateRecordingCount() {
+  const n = CHANNELS.filter(ch => state[ch.id]?.recording).length;
+  const el = document.getElementById('sb-rec');
+  el.style.display = n > 0 ? '' : 'none'; el.textContent = `● REC (${n})`;
+}
+function updateScheduledCount() {
+  const n = CHANNELS.reduce((a, ch) => a + (state[ch.id]?.clips.filter(c => c.status === 'scheduled').length || 0), 0);
+  const el = document.getElementById('sb-sched');
+  el.style.display = n > 0 ? '' : 'none'; el.textContent = `◷ SCHEDULED (${n})`;
+}
+
+function zoomIn()  { if (zoomIdx > 0)                      { zoomIdx--; zoomMs = ZOOM_LEVELS_MS[zoomIdx]; updateZoom(); } }
+function zoomOut() { if (zoomIdx < ZOOM_LEVELS_MS.length-1) { zoomIdx++; zoomMs = ZOOM_LEVELS_MS[zoomIdx]; updateZoom(); } }
+function updateZoom() {
+  const m = zoomMs / 60000;
+  document.getElementById('zoomlabel').textContent = m >= 60 ? (m/60)+'hr' : m+'min';
+  buildRuler(); CHANNELS.forEach(ch => renderClips(ch.id));
+}
+function scrollToNow() {
+  viewOffsetMs = nowMs() - zoomMs / 4;
+  buildRuler(); CHANNELS.forEach(ch => renderClips(ch.id));
+}
+
+/* ── Clock tick: now-line + scheduled clip watcher ── */
+function updateClock() {
+  const now = new Date(), t = now.toTimeString().slice(0,8);
+  document.getElementById('clock').textContent        = now.toDateString() + '  ' + t;
+  document.getElementById('current-time').textContent = t;
+  document.getElementById('sb3').textContent          = t;
+
+  const epoch = now.getTime();
+  const x     = pxFromMs(epoch);
+  CHANNELS.forEach(ch => {
+    const nl = document.getElementById('nowline-' + ch.id);
+    if (nl) nl.style.left = x + 'px';
+
+    const st = state[ch.id];
+    if (!st) return;
+
+    /* Watch scheduled clips — lock start 30s before, hand off to server at start time */
+    for (let i = st.clips.length - 1; i >= 0; i--) {
+      const clip = st.clips[i];
+      if (clip.status !== 'scheduled') continue;
+
+      // REPLACE WITH:
+      if (!clip.startLocked && epoch >= clip.startMs - 30000) {
+        clip.startLocked = true;
+        // Force-save any pending inspector changes before the clip locks
+        if (selectedClipRef?.chId === ch.id && selectedClipRef?.idx === i) {
+          const saveRow = document.getElementById('ins-save-row');
+          if (saveRow.style.display === 'flex') saveInspector();
+        }
+        renderClips(ch.id);
+        if (selectedClipRef?.chId === ch.id && selectedClipRef?.idx === i) selectClip(ch.id, i);
+      }
+
+      if (epoch >= clip.startMs) {
+        // Server handles actual start — flip to waiting state, check status at start_time
+        clip.status      = 'polling';
+        clip.startLocked = true;
+        updateScheduledCount(); renderClips(ch.id);
+        scheduleStatusCheck(ch.id, i, 'start');
+      }
+    }
+
+    /* Keep live-recording clip's right edge moving */
+    if (st.recording && st.activeClip !== null) {
+      const clip = st.clips[st.activeClip];
+      if (clip?.recording) {
+        renderClips(ch.id);
+        const suffixInput = document.getElementById('ins-name-suffix');
+        const userIsTyping = suffixInput && document.activeElement === suffixInput;
+        if (!userIsTyping &&
+            selectedClipRef?.chId === ch.id && selectedClipRef?.idx === st.activeClip)
+          selectClip(ch.id, st.activeClip);
+      }
+    }
+  });
+}
+
+loadChannels();
+setInterval(updateClock, 1000);
+</script>

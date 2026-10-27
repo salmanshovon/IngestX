@@ -1,51 +1,21 @@
-# ---------------------------------------------------------------------------
-# PlyOut — Frontend
-# ---------------------------------------------------------------------------
-
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Build output
-dist/
-build/
-.vite/
-*.tsbuildinfo
-
-# Test / coverage artefacts
-coverage/
-.nyc_output/
-playwright-report/
-test-results/
-blob-report/
-playwright/.cache/
-
-# Local tooling / editors
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Environment — never commit
+# Environment / secrets — never commit
 .env
 .env.*
-!.env.example
+cookies.txt
 
-# OS noise
+# Python
+__pycache__/
+*.py[cod]
+db.sqlite3
+*.log
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# OS / editors
 .DS_Store
 Thumbs.db
-desktop.ini
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Generated API client — regenerate from Backend/openapi.yaml
-# Uncomment the next line once the generate step runs in CI:
-# src/types/api.d.ts
+.idea/
+.vscode/

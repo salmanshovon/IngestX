@@ -1,0 +1,40 @@
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+db.sqlite3
+media/
+staticfiles/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Session material — never commit
+cookies.txt
+
+# Pipenv
+Pipfile.lock
+
+# TaskQue runtime state
+TaskQue/logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+*.mmdb
+
+#media files
+*.mp4
+*.pdf
