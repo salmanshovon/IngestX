@@ -222,6 +222,10 @@ export function Inspector({
   // that is how the operator finishes a capture that overruns. Everything
   // else follows the same freeze as start/delete.
   const canEditEnd = !terminal && (isRecording ? live || !frozen : isHeld && !onAir)
+  // A running recording's capture file name can be corrected on the fly, the
+  // same way its end time can. Scheduled recordings keep the same freedom until
+  // they freeze inside the 15-second queue cutoff.
+  const canEditName = isRecording && !terminal && (live || !frozen)
   const canEditNote = !frozen && !onAir
   const LockIcon = Lock
 
@@ -362,7 +366,7 @@ export function Inspector({
               <Row label="Name">
                 <Input
                   value={suffixValue}
-                  disabled={frozen || onAir}
+                  disabled={!canEditName}
                   onChange={(event_) => {
                     setTouched(true)
                     setSuffixValue(event_.target.value)
@@ -551,7 +555,7 @@ export function Inspector({
           size="sm"
           className="ml-auto"
           loading={isSaving}
-          disabled={!dirty || (!canEditStart && !canEditEnd && !canEditNote)}
+          disabled={!dirty || (!canEditStart && !canEditEnd && !canEditNote && !canEditName)}
           onClick={save}
           icon={<Save className="h-3.5 w-3.5" />}
         >

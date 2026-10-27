@@ -156,7 +156,10 @@ def recording_edit_block(rec, now=None, payload=None):
     now = now or timezone.now()
 
     if rec.status == 'RECORDING' and payload is not None:
-        if set(payload).issubset({'end_time'}):
+        # A running capture keeps two sanctioned exceptions: its end time may be
+        # trimmed or extended (how an operator finishes an overrun), and its file
+        # name may be corrected on the fly. Everything else is refused.
+        if set(payload).issubset({'end_time', 'filename'}):
             return None
 
     if rec.status in ('COMPLETED', 'STOPPED', 'FAILED'):
@@ -1008,6 +1011,23 @@ class ScheduleDetailView(APIView):
             rec.save()
         except Exception as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Keep the TaskQue desktop engine in sync with schedule edits (end time,
+        # file name, ...) so an in-flight capture is re-timed / renamed on the
+        # fly. Mirrors RecordingDetailView.perform_update.
+        task_data = {
+            "id": rec.id,
+            "filename": rec.filename,
+            "start_time": rec.start_time.isoformat() if rec.start_time else None,
+            "end_time": rec.end_time.isoformat() if rec.end_time else None,
+            "port": rec.port_id,
+        }
+        send_command_to_pyqt(command="UPDATE", task_data=task_data)
+        try:
+            broadcast_recording_event('recording.updated', {'recording': task_data}, session_id=rec.id)
+        except Exception:
+            pass
+
         return Response(recording_to_event(rec))
 
     def put(self, request, pk):

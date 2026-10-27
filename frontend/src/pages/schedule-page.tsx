@@ -225,7 +225,17 @@ export function SchedulePage() {
       const at = Date.now()
       const frozen = payload.ids
         .map((id) => byId.get(id))
-        .find((candidate) => candidate !== undefined && deleteBlock(candidate, at) !== null)
+        .find((candidate) => {
+          if (!candidate) return false
+          if (
+            payload.kind === 'resize-end' &&
+            candidate.action_type === 'RECORD' &&
+            isLiveAt(candidate, at)
+          ) {
+            return false
+          }
+          return deleteBlock(candidate, at) !== null
+        })
       if (frozen) {
         const block = deleteBlock(frozen, at)
         notify.warning(
@@ -438,9 +448,18 @@ export function SchedulePage() {
       // matters: one frozen member would otherwise be dragged along with the
       // rest of its break.
       const at = Date.now()
-      const frozen = [args.event, ...args.companions].find(
-        (candidate) => deleteBlock(candidate, at) !== null,
-      )
+      // A live recording may still have its ending border dragged, even though
+      // it is otherwise frozen (it cannot be moved or have its start changed).
+      const frozen = [args.event, ...args.companions].find((candidate) => {
+        if (
+          args.kind === 'resize-end' &&
+          candidate.action_type === 'RECORD' &&
+          isLiveAt(candidate, at)
+        ) {
+          return false
+        }
+        return deleteBlock(candidate, at) !== null
+      })
       if (frozen) {
         const block = deleteBlock(frozen, at)
         if (frozen.id !== args.event.id) {
@@ -843,9 +862,16 @@ export function SchedulePage() {
                     // time alone, which the server allows too.
                     const at = Date.now()
                     const block = deleteBlock(selectedEvent, at)
-                    const endOnly =
-                      Object.keys(patch).length === 1 && patch.end_time !== undefined
-                    if (block && !(endOnly && isLiveAt(selectedEvent, at))) {
+                    const live = isLiveAt(selectedEvent, at)
+                    const isRecording = selectedEvent.action_type === 'RECORD'
+                    // A live recording keeps two sanctioned edits on the fly:
+                    // its end time and its capture file name. Everything else
+                    // (and any edit to a queued/past item) stays refused.
+                    const onlyLiveAllowedKeys = Object.keys(patch).every(
+                      (key) => key === 'end_time' || key === 'filename',
+                    )
+                    const liveAllowed = isRecording && live && onlyLiveAllowedKeys
+                    if (block && !liveAllowed) {
                       notify.warning('Cannot change this item', deleteBlockMessage(block))
                       return
                     }
