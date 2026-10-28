@@ -242,7 +242,7 @@ export function Timeline({
               </span>
             </div>
             <div
-              className="relative shrink-0 cursor-grab select-none active:cursor-grabbing"
+              className="relative shrink-0 cursor-default select-none active:cursor-grabbing"
               style={{ width: laneWidth }}
               onPointerDown={handlePanPointerDown}
             >
@@ -587,7 +587,7 @@ const ChannelBlock = memo(function ChannelBlock({
 
                 <div
                   className={cn(
-                    'group/lane absolute inset-0 cursor-grab active:cursor-grabbing',
+                    'group/lane absolute inset-0 cursor-default active:cursor-grabbing',
                     showGrid && 'bg-inset',
                   )}
                   onContextMenu={(nativeEvent) => {
@@ -1017,8 +1017,16 @@ const AdChain = memo(function AdChain({
   // whose break has started cannot have its start pulled backwards, and a
   // locked item cannot be touched at all -- hiding the handle rather than
   // showing a dead one is the rule the single clips already follow.
+  // An on-air recording may still be stretched from its ending border (the
+  // server accepts an end_time-only edit on a running capture), even though it
+  // is otherwise frozen: its start cannot move and the item cannot be dragged.
+  const isLiveRecording = Boolean(
+    last && last.event.action_type === 'RECORD' && last.geometry.isOnAir,
+  )
   const canPullStart = Boolean(first && !first.geometry.isLocked && !first.geometry.isOnAir)
-  const canPullEnd = Boolean(last && !last.geometry.isLocked && !last.geometry.isOnAir && !geometry.isLocked)
+  const canPullEnd = isLiveRecording
+    ? true
+    : Boolean(last && !last.geometry.isLocked && !last.geometry.isOnAir && !geometry.isLocked)
   const showHandles = widthPx >= 44
 
   const style: React.CSSProperties = {
