@@ -227,11 +227,7 @@ export function SchedulePage() {
         .map((id) => byId.get(id))
         .find((candidate) => {
           if (!candidate) return false
-          if (
-            payload.kind === 'resize-end' &&
-            candidate.action_type === 'RECORD' &&
-            isLiveAt(candidate, at)
-          ) {
+          if (payload.kind === 'resize-end' && canResizeRecordingEnd(candidate, at)) {
             return false
           }
           return deleteBlock(candidate, at) !== null
@@ -451,11 +447,7 @@ export function SchedulePage() {
       // A live recording may still have its ending border dragged, even though
       // it is otherwise frozen (it cannot be moved or have its start changed).
       const frozen = [args.event, ...args.companions].find((candidate) => {
-        if (
-          args.kind === 'resize-end' &&
-          candidate.action_type === 'RECORD' &&
-          isLiveAt(candidate, at)
-        ) {
+        if (args.kind === 'resize-end' && canResizeRecordingEnd(candidate, at)) {
           return false
         }
         return deleteBlock(candidate, at) !== null
@@ -1205,6 +1197,21 @@ function CancelAlternative({
       Prefer a soft cancel? Mark it CANCELLED instead of deleting
     </button>
   )
+}
+
+/**
+ * A recording keeps a draggable ending border while it is queued or live.
+ *
+ * Only its end time moves: the start is already handed to the engine, so the
+ * block may be stretched but never shifted or pulled backwards. Finished
+ * recordings are history and stay frozen.
+ */
+function canResizeRecordingEnd(event: ScheduleEvent, nowMs: number): boolean {
+  if (event.action_type !== 'RECORD') return false
+  if (event.status === 'COMPLETED' || event.status === 'FAILED' || event.status === 'CANCELLED') {
+    return false
+  }
+  return eventEndMs(event) > nowMs
 }
 
 function chainMembersFor(events: ScheduleEvent[], event: ScheduleEvent): ScheduleEvent[] {

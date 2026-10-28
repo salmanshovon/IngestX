@@ -145,28 +145,30 @@ def recording_edit_block(rec, now=None, payload=None):
     """
     Why a scheduled recording may not be moved/edited right now.
 
-    The same 15-second queue cutoff that freezes delete also freezes moving,
-    retiming and editing a capture: by that point the engine has the item and
-    mutating it would race the capture. Past and finished items are history.
+    Moving the item or changing its start is frozen by the same 15-second queue
+    cutoff as delete: past that point the engine has the item and a retime would
+    race the capture. Past and finished items are history.
 
-    A capture that is actually running keeps one sanctioned exception: its end
-    time may be trimmed or extended, because that is how an operator finishes a
-    recording that overruns. Everything else is refused.
+    End time (duration), file name and operator note stay editable on a queued
+    or running capture. They describe the capture rather than when it starts,
+    and are exactly what an operator needs to correct while it is recording.
     """
     now = now or timezone.now()
-
-    if rec.status == 'RECORDING' and payload is not None:
-        # A running capture keeps two sanctioned exceptions: its end time may be
-        # trimmed or extended (how an operator finishes an overrun), and its file
-        # name may be corrected on the fly. Everything else is refused.
-        if set(payload).issubset({'end_time', 'filename'}):
-            return None
 
     if rec.status in ('COMPLETED', 'STOPPED', 'FAILED'):
         return (
             'EDIT_BLOCKED',
             'This item has already finished and can no longer be moved, edited or deleted.',
         )
+
+    # End/duration, name and note describe the capture rather than when it
+    # starts, so they stay editable while it is queued or already recording.
+    # `version` is request metadata added by the scheduler; without allowing it
+    # here an end-only PATCH from the timeline looked like a move and was
+    # refused as frozen.
+    live_editable = {'end_time', 'filename', 'note', 'version'}
+    if payload is not None and set(payload).issubset(live_editable):
+        return None
 
     if rec.start_time <= now + DELETE_CUTOFF:
         return (
