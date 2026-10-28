@@ -6,7 +6,7 @@ import type { MediaLane, Pipeline, ScheduleEvent } from '@/api/types'
 import { CHANNEL_TIMEZONE, LOCK_WINDOW_MS } from '@/config'
 import { cn } from '@/lib/cn'
 import { defaultRecordMsFromMinutes } from '@/lib/recording'
-import { formatClock, formatDate, formatShortDuration, displayTitle, toNumber } from '@/lib/format'
+import { formatClock, formatDate, formatElapsed, formatShortDuration, displayTitle, toNumber } from '@/lib/format'
 import { nextScheduledStart, startImmediateRecording, stopRecordingNow } from '@/lib/recording'
 import { useRecordSettings } from '@/hooks/use-playout-data'
 import {
@@ -1138,6 +1138,13 @@ const AdChain = memo(function AdChain({
         {members.map((member, index) => {
           const phase = playbackPhase(member.event, now)
           const tone = SEGMENT_TONE[phase]
+          // A recording is drawn through this same chain component (as a
+          // one-member chain), but it is not an ad break: its executing chip
+          // reads REC, and a lone segment has no meaningful "1/1" position.
+          const isRecording = member.event.action_type === 'RECORD'
+          const phaseLabel = isRecording ? 'REC' : tone.label
+          const recordingElapsedMs =
+            isRecording && phase === 'executing' ? Math.max(0, now - member.geometry.startMs) : null
           const title = displayTitle(member.event.media_title) || 'Untitled'
           const startMs = member.geometry.startMs
           const endMs = member.geometry.endMs
@@ -1187,17 +1194,19 @@ const AdChain = memo(function AdChain({
               {segmentPx >= 18 ? (
                 <div className="relative flex h-full min-w-0 flex-col justify-center gap-1 px-2 py-1.5">
                   <div className="flex min-w-0 items-center gap-1.5">
-                    <span
-                      className="tnum shrink-0 rounded px-1 py-px text-[10px] font-bold leading-tight"
-                      style={{
-                        background: tone.chipBg,
-                        color: tone.chipFg,
-                        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tone.accent} 35%, transparent)`,
-                      }}
-                      title={`File ${index + 1} of ${members.length} in this break`}
-                    >
-                      {index + 1}/{members.length}
-                    </span>
+                    {members.length > 1 && (
+                      <span
+                        className="tnum shrink-0 rounded px-1 py-px text-[10px] font-bold leading-tight"
+                        style={{
+                          background: tone.chipBg,
+                          color: tone.chipFg,
+                          boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tone.accent} 35%, transparent)`,
+                        }}
+                        title={`File ${index + 1} of ${members.length} in this break`}
+                      >
+                        {index + 1}/{members.length}
+                      </span>
+                    )}
                     <span
                       className="min-w-0 flex-1 truncate text-xs leading-tight font-semibold"
                       title={title}
@@ -1209,7 +1218,7 @@ const AdChain = memo(function AdChain({
                         className="shrink-0 rounded px-1 py-px text-[9px] font-bold tracking-wider uppercase"
                         style={{ background: tone.chipBg, color: tone.chipFg }}
                       >
-                        {tone.label}
+                        {phaseLabel}
                       </span>
                     )}
                   </div>
@@ -1281,6 +1290,19 @@ const AdChain = memo(function AdChain({
                 </div>
               ) : (
                 <span className="sr-only">{title}</span>
+              )}
+
+              {/* Elapsed wall time of a capture that is still running. Kept out
+                  of the centred info grid so it reads as a live counter in the
+                  corner rather than another static field. `now` ticks at 1 Hz,
+                  so it advances without waiting for the next schedule poll. */}
+              {recordingElapsedMs !== null && (
+                <span
+                  className="tnum pointer-events-none absolute bottom-1.5 left-2 text-lg leading-none font-bold tracking-tight"
+                  style={{ color: tone.accent, textShadow: '0 1px 3px rgb(0 0 0 / 0.55)' }}
+                >
+                  {formatElapsed(recordingElapsedMs)}
+                </span>
               )}
             </div>
           </Tooltip>

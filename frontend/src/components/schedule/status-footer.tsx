@@ -44,7 +44,7 @@ export function StatusFooter({
 
       <span className="flex items-center gap-1.5">
         <CircleDot className={cn('h-3 w-3', counters.onAir > 0 ? 'text-danger' : 'text-subtle')} />
-        <span className="text-subtle">On air</span>
+        <span className="text-subtle">REC</span>
         <span className={cn('tnum font-semibold', counters.onAir > 0 ? 'text-danger' : 'text-default')}>
           {counters.onAir}
         </span>

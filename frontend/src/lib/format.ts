@@ -64,15 +64,33 @@ export function formatTime(iso: string, timezone: string): string {
   }).format(date)
 }
 
+const datePartFormatters = new Map<string, Intl.DateTimeFormat>()
+
+/**
+ * `2026 / 10 / 28` -- the one date shape used across the application.
+ *
+ * Built from parts rather than a locale pattern: `en-GB` gives `28/10/2026`,
+ * and every screen would have to agree on a manual reordering of that string.
+ * Formatting the parts once here keeps the separator and order identical in
+ * tables, tooltips, the inspector and the timeline ruler.
+ */
 export function formatDate(iso: string, timezone: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '--'
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date)
+  let formatter = datePartFormatters.get(timezone)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    datePartFormatters.set(timezone, formatter)
+  }
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((part) => [part.type, part.value]),
+  )
+  return `${parts.year} / ${parts.month} / ${parts.day}`
 }
 
 export function formatDateTime(iso: string, timezone: string): string {
@@ -80,21 +98,25 @@ export function formatDateTime(iso: string, timezone: string): string {
   return `${formatDate(iso, timezone)} ${formatTime(iso, timezone)}`
 }
 
-/** `14 Oct 2026, 20:00:36` -- for tooltips and detail rows. */
+/** `2026 / 10 / 28 20:00:36` -- for tooltips and detail rows. */
 export function formatFull(iso: string | null, timezone: string): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
+  return `${formatDate(iso, timezone)} ${formatClock(iso, timezone)}`
+}
+
+/**
+ * `hh:mm:ss` elapsed wall time, for a capture that is still running.
+ *
+ * Deliberately not a clock time: an ongoing recording has no date of its own,
+ * and wrapping the elapsed milliseconds in a Date would drag in the channel
+ * timezone and turn a 40-minute capture into a 1970 timestamp.
+ */
+export function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`
 }
 
 /** `hh:mm:ss.mmm` -- the as-run report format (FR-XL-06). */
