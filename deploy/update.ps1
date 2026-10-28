@@ -62,9 +62,12 @@ if (Test-Path $Nginx) {
 
 Step 'Restarting Daphne'
 try {
-    $pid = Get-NetTCPConnection -State Listen -LocalPort 8000 -ErrorAction Stop |
+    # NOT `$pid`: that is a read-only PowerShell automatic variable, so assigning
+    # to it throws and the catch block then wrongly reports "Daphne was not
+    # running" -- leaving the old process serving stale Python after a deploy.
+    $daphnePid = Get-NetTCPConnection -State Listen -LocalPort 8000 -ErrorAction Stop |
         Select-Object -First 1 -ExpandProperty OwningProcess
-    if ($pid) { Stop-Process -Id $pid -Force }
+    if ($daphnePid) { Stop-Process -Id $daphnePid -Force }
     Write-Host 'Daphne stopped; the watchdog will start it again within 10s.'
 } catch {
     Write-Host 'Daphne was not running.'
