@@ -476,7 +476,12 @@ const ChannelBlock = memo(function ChannelBlock({
   onClipContextMenu,
 }: ChannelBlockProps) {
   const channel = model.get(pipeline.id)
-  const laneHeight = MIN_LANE_HEIGHT * 1.5
+  // The left panel stacks an identity row, the 160px preview monitor and the
+  // Now/Next block with its Start/Stop Record button. A 1.5x lane row left only
+  // ~15px for that last block, so the button and its captions were clipped;
+  // 2x gives the preview and the controls room to breathe without stretching
+  // the timeline into a second screen.
+  const laneHeight = MIN_LANE_HEIGHT * 2
 
   const { current, next } = useMemo(() => {
     if (!channel) return { current: null, next: null }
@@ -1138,17 +1143,26 @@ const AdChain = memo(function AdChain({
         {members.map((member, index) => {
           const phase = playbackPhase(member.event, now)
           const tone = SEGMENT_TONE[phase]
-          // A recording is drawn through this same chain component (as a
-          // one-member chain), but it is not an ad break: its executing chip
-          // reads REC, and a lone segment has no meaningful "1/1" position.
-          const isRecording = member.event.action_type === 'RECORD'
-          const phaseLabel = isRecording ? 'REC' : tone.label
-          const recordingElapsedMs =
-            isRecording && phase === 'executing' ? Math.max(0, now - member.geometry.startMs) : null
-          const title = displayTitle(member.event.media_title) || 'Untitled'
           const startMs = member.geometry.startMs
           const endMs = member.geometry.endMs
           const spanMs = Math.max(0, endMs - startMs)
+          // `upcoming` covers both a scheduled item and one inside the 15-second
+          // queue window. The chip is the operator's only read on which it is,
+          // so split it instead of calling a capture scheduled tomorrow
+          // "Queued". REC belongs to the capture that is actually running now;
+          // every other phase keeps its ordinary label.
+          const isRecording = member.event.action_type === 'RECORD'
+          const phaseLabel =
+            phase === 'upcoming'
+              ? startMs - now <= LOCK_WINDOW_MS
+                ? 'Queued'
+                : 'Scheduled'
+              : phase === 'executing' && isRecording
+                ? 'REC'
+                : tone.label
+          const recordingElapsedMs =
+            isRecording && phase === 'executing' ? Math.max(0, now - startMs) : null
+          const title = displayTitle(member.event.media_title) || 'Untitled'
           // Actual rendered width of THIS commercial, not an average across
           // the break: the thresholds below gate text, and an average made a
           // short ad in a long break draw labels it had no room for.
