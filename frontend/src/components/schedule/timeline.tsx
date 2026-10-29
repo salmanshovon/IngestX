@@ -33,16 +33,26 @@ import { AgentDot, Badge, EmptyState } from '@/components/ui/primitives'
 import { Clip, clipTooltip } from './clip'
 import type { DragState } from '@/hooks/use-timeline-drag'
 
-/**
- * Width of the per-pipeline left panel.
- *
- * Sized to the preview monitor rather than the other way round: the panel has
- * to hold identity, preview and now/next in the same vertical budget as the
- * lanes, and the preview is the only element that scales with width.
- */
-const PANEL_WIDTH = 176
-const RULER_HEIGHT = 30
-const MIN_LANE_HEIGHT = 24
+/**
+ * Width of the per-pipeline left panel.
+ *
+ * Sized to the preview monitor rather than the other way round: the panel has
+ * to hold identity, preview and now/next in the same vertical budget as the
+ * lanes, and the preview is the only element that scales with width.
+ */
+const PANEL_WIDTH = 176
+/** 4:3 preview, matching the source's SD/HD frame shape. */
+const PREVIEW_HEIGHT = Math.round((PANEL_WIDTH * 3) / 4)
+const RULER_HEIGHT = 30
+/**
+ * Vertical budget for one channel row.
+ *
+ * The preview lost 28px when it went from 160px tall to 4:3 (132px), and the
+ * lane stack gives exactly that back: the panel and its lanes stay the same
+ * height, with no dead strip under the last lane.
+ */
+const CHANNEL_HEIGHT = 260
+const LANE_FLEX_TOTAL = LANE_DEFINITIONS.reduce((sum, definition) => sum + definition.flex, 0)
 
 export interface TimelineProps {
   pipelines: Pipeline[]
@@ -475,13 +485,11 @@ const ChannelBlock = memo(function ChannelBlock({
   onPipelineSelect,
   onClipContextMenu,
 }: ChannelBlockProps) {
-  const channel = model.get(pipeline.id)
-  // The left panel stacks an identity row, the 160px preview monitor and the
-  // Now/Next block with its Start/Stop Record button. A 1.5x lane row left only
-  // ~15px for that last block, so the button and its captions were clipped;
-  // 2x gives the preview and the controls room to breathe without stretching
-  // the timeline into a second screen.
-  const laneHeight = MIN_LANE_HEIGHT * 2
+  const channel = model.get(pipeline.id)
+  // Flex weight -> pixels for this channel row. The panel and the lane stack
+  // both use this budget, so the record controls below the preview always have
+  // exactly the room the row gives them.
+  const laneHeight = CHANNEL_HEIGHT / LANE_FLEX_TOTAL
 
   const { current, next } = useMemo(() => {
     if (!channel) return { current: null, next: null }
@@ -705,9 +713,10 @@ function PreviewMonitor({ pipeline }: { pipeline: Pipeline }) {
   const base = `https://itvstreamx.duckdns.org:8889/${pipeline.name}/`
 
   return (
-    <div
-      className="relative mx-auto mb-1 h-[160px] w-full overflow-hidden rounded border border-line bg-black cursor-pointer"
-      onClick={() => useUiStore.getState().setActivePipelineId(pipeline.id)}
+    <div
+      className="relative mx-auto mb-1 w-full overflow-hidden rounded border border-line bg-black cursor-pointer"
+      style={{ height: PREVIEW_HEIGHT }}
+      onClick={() => useUiStore.getState().setActivePipelineId(pipeline.id)}
     >
       <iframe
         src={`${base}?autoplay=true`}
@@ -801,43 +810,64 @@ function NowNext({
 
   return (
     <div className="flex min-h-0 flex-col justify-center gap-1 px-2 py-0.5">
-      <div>
-        {current ? (
-          <div className="flex items-center gap-1">
-            <span className="h-1 w-1 shrink-0 animate-onair rounded-full bg-danger" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[10px] leading-[1.15] font-medium text-default">
-                {label(current)}
-              </span>
-              <span className="tnum block truncate text-[9px] leading-[1.15] text-subtle">
-                {formatShortDuration((eventEndMs(current) - eventStartMs(current)) / 1000)} ·{' '}
-                {formatClock(new Date(eventStartMs(current)).toISOString(), CHANNEL_TIMEZONE)}
-              </span>
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      <div>
-        {next ? (
-          <div className="flex items-center gap-1">
-            <span className="h-1 w-1 shrink-0 rounded-full bg-warn" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[10px] leading-[1.15] font-medium text-default">
-                {label(next)}
-              </span>
-              <span className="tnum block truncate text-[9px] leading-[1.15] text-subtle">
-                {formatClock(new Date(eventStartMs(next)).toISOString(), CHANNEL_TIMEZONE)} ·{' '}
-                {formatShortDuration((eventEndMs(next) - eventStartMs(next)) / 1000)}
-              </span>
-            </span>
-            {countdown !== null && (
-              <span className="tnum shrink-0 rounded bg-warn-soft px-1 py-px text-[9px] font-semibold text-warn">
-                {countdown}s
-              </span>
-            )}
-          </div>
-        ) : null}
+      <div>
+        {current ? (
+          <div className="flex items-center gap-1">
+            <span className="h-1 w-1 shrink-0 animate-onair rounded-full bg-danger" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[10px] leading-[1.15] font-medium text-default">
+                {label(current)}
+              </span>
+              <span className="tnum block truncate text-[9px] leading-[1.15] text-subtle">
+                {formatShortDuration((eventEndMs(current) - eventStartMs(current)) / 1000)} ·{' '}
+                {formatClock(new Date(eventStartMs(current)).toISOString(), CHANNEL_TIMEZONE)}
+              </span>
+            </span>
+          </div>
+        ) : (
+          // Never leave the slot blank: an empty row reads as a broken panel,
+          // while IDLE says the channel is up and simply not capturing.
+          <div className="flex items-center gap-1">
+            <span className="h-1 w-1 shrink-0 rounded-full bg-subtle" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[10px] leading-[1.15] font-medium text-subtle">
+                IDLE
+              </span>
+              <span className="block truncate text-[9px] leading-[1.15] text-subtle">
+                No recording in progress
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div>
+        {next ? (
+          <div className="flex items-center gap-1">
+            <span className="h-1 w-1 shrink-0 rounded-full bg-warn" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[10px] leading-[1.15] font-medium text-default">
+                {label(next)}
+              </span>
+              <span className="tnum block truncate text-[9px] leading-[1.15] text-subtle">
+                {formatClock(new Date(eventStartMs(next)).toISOString(), CHANNEL_TIMEZONE)} ·{' '}
+                {formatShortDuration((eventEndMs(next) - eventStartMs(next)) / 1000)}
+              </span>
+            </span>
+            {countdown !== null && (
+              <span className="tnum shrink-0 rounded bg-warn-soft px-1 py-px text-[9px] font-semibold text-warn">
+                {countdown}s
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <span className="h-1 w-1 shrink-0 rounded-full bg-subtle" aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-[10px] leading-[1.15] font-medium text-subtle">
+              No Record Scheduled
+            </span>
+          </div>
+        )}
       </div>
       <div className="mt-1 flex items-center justify-center">
         <button
