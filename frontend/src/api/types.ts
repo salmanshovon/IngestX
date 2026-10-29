@@ -304,6 +304,8 @@ export interface ScheduleEvent {
   effective_end_time: string | null
   duration_seconds: string
   status: ScheduleStatus
+  /** Ingest stage reported by TaskQue; null until the capture is processed. */
+  processing_status?: 'TESTING' | 'INGESTING' | 'DONE' | 'FAILED' | null
   hold_seconds: string | null
   version: number
   note: string

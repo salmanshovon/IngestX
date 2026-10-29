@@ -1,6 +1,6 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { MonitorPlay } from 'lucide-react'
+import { Film, MonitorPlay, Square } from 'lucide-react'
 
 import type { MediaLane, Pipeline, ScheduleEvent } from '@/api/types'
 import { CHANNEL_TIMEZONE, LOCK_WINDOW_MS } from '@/config'
@@ -19,8 +19,10 @@ import {
   eventEndMs,
   eventStartMs,
   groupIntoChains,
-  isVisible,
-  playbackPhase,
+  isVisible,
+  playbackPhase,
+  workflowStatus,
+  WORKFLOW_LABEL,
   type ClipGeometry,
   type PlaybackPhase,
   type Tick,
@@ -28,7 +30,9 @@ import {
 } from '@/lib/timeline'
 import { useUiStore } from '@/stores/ui-store'
 import { notify } from '@/stores/notification-store'
-import { Tooltip } from '@/components/ui/tooltip'
+import { Tooltip } from '@/components/ui/tooltip'
+
+import { Button } from '@/components/ui/button'
 import { AgentDot, Badge, EmptyState } from '@/components/ui/primitives'
 import { Clip, clipTooltip } from './clip'
 import type { DragState } from '@/hooks/use-timeline-drag'
@@ -869,15 +873,16 @@ function NowNext({
           </div>
         )}
       </div>
-      <div className="mt-1 flex items-center justify-center">
-        <button
-          type="button"
-          disabled={busy}
-          className={`rounded-sm border px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50 ${isRecording ? 'bg-[#ffebee] text-[#c62828] border-[#ffcdd2] animate-pulse' : 'bg-[#e8f5e9] text-[#2e7d32] border-[#c8e6c9] hover:bg-[#c8e6c9]'}`}
+      <div className="mt-1 flex items-center justify-center">
+        <Button
+          size="xs"
+          variant={isRecording ? 'danger' : 'primary'}
+          loading={busy}
+          icon={isRecording ? <Square className="h-3.5 w-3.5" /> : <Film className="h-3.5 w-3.5" />}
           onClick={() => void toggleRecording()}
         >
-          {busy ? 'Working…' : isRecording ? 'Stop Record' : 'Start Record'}
-        </button>
+          {isRecording ? 'Stop record' : 'Start record'}
+        </Button>
       </div>
     </div>
   )
@@ -1176,20 +1181,10 @@ const AdChain = memo(function AdChain({
           const startMs = member.geometry.startMs
           const endMs = member.geometry.endMs
           const spanMs = Math.max(0, endMs - startMs)
-          // `upcoming` covers both a scheduled item and one inside the 15-second
-          // queue window. The chip is the operator's only read on which it is,
-          // so split it instead of calling a capture scheduled tomorrow
-          // "Queued". REC belongs to the capture that is actually running now;
-          // every other phase keeps its ordinary label.
+          // The chip mirrors the run-down's workflow labels, so a file being
+          // probed or moved by TaskQue reads Testing / Ingesting on both views.
           const isRecording = member.event.action_type === 'RECORD'
-          const phaseLabel =
-            phase === 'upcoming'
-              ? startMs - now <= LOCK_WINDOW_MS
-                ? 'Queued'
-                : 'Scheduled'
-              : phase === 'executing' && isRecording
-                ? 'REC'
-                : tone.label
+          const phaseLabel = WORKFLOW_LABEL[workflowStatus(member.event, now)]
           const recordingElapsedMs =
             isRecording && phase === 'executing' ? Math.max(0, now - startMs) : null
           const title = displayTitle(member.event.media_title) || 'Untitled'
@@ -1381,21 +1376,21 @@ const SEGMENT_TONE: Record<
 > = {
   upcoming: {
     accent: 'var(--warn)',
-    label: 'Queued',
+    label: 'Scheduled',
     chipBg: 'color-mix(in srgb, var(--warn) 20%, transparent)',
     chipFg: 'var(--warn)',
     tint: 'color-mix(in srgb, var(--warn) 13%, transparent)',
   },
   executing: {
     accent: 'var(--danger)',
-    label: 'On air',
+    label: 'REC',
     chipBg: 'color-mix(in srgb, var(--danger) 26%, transparent)',
     chipFg: 'var(--clip-live-fg)',
     tint: 'color-mix(in srgb, var(--danger) 18%, transparent)',
   },
   executed: {
     accent: 'var(--ok)',
-    label: 'Played',
+    label: 'Done',
     chipBg: 'color-mix(in srgb, var(--ok) 20%, transparent)',
     chipFg: 'var(--ok)',
     tint: 'color-mix(in srgb, var(--ok) 13%, transparent)',

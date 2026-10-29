@@ -187,16 +187,16 @@ export const LANE_LABEL: Record<MediaLane, string> = {
 }
 
 export const STATUS_LABEL: Record<ScheduleStatus, string> = {
-  PENDING: 'Pending',
-  PLAYING: 'On air',
-  COMPLETED: 'Completed',
+  PENDING: 'Scheduled',
+  PLAYING: 'REC',
+  COMPLETED: 'Done',
   FAILED: 'Failed',
   CANCELLED: 'Cancelled',
 }
 
 export const STATUS_TONE: Record<ScheduleStatus, 'ok' | 'accent' | 'warn' | 'danger' | 'muted'> = {
   PENDING: 'warn',
-  PLAYING: 'accent',
+  PLAYING: 'danger',
   COMPLETED: 'ok',
   FAILED: 'danger',
   CANCELLED: 'muted',

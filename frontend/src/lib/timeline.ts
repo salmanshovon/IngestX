@@ -190,6 +190,48 @@ export function isLiveAt(event: ScheduleEvent, nowMs: number): boolean {
 }
 
 /**
+ * Operator-facing workflow state of a recording file.
+ *
+ * The clock answers Scheduled / Queued / REC / Done exactly as the timeline
+ * does. TESTING and INGESTING come from TaskQue: they describe post-capture
+ * work the clock cannot see, so they take precedence over `executed` while the
+ * file is being probed or moved to the delivery share.
+ */
+export type WorkflowStatus =
+  | 'SCHEDULED'
+  | 'QUEUED'
+  | 'REC'
+  | 'TESTING'
+  | 'INGESTING'
+  | 'DONE'
+  | 'FAILED'
+
+export const WORKFLOW_LABEL: Record<WorkflowStatus, string> = {
+  SCHEDULED: 'Scheduled',
+  QUEUED: 'Queued',
+  REC: 'REC',
+  TESTING: 'Testing',
+  INGESTING: 'Ingesting',
+  DONE: 'Done',
+  FAILED: 'Failed',
+}
+
+export function workflowStatus(event: ScheduleEvent, nowMs: number): WorkflowStatus {
+  const processing = event.processing_status
+  // File work outranks the window: the capture may already be COMPLETED while
+  // TaskQue is still probing or moving it.
+  if (processing === 'TESTING' || processing === 'INGESTING') return processing
+
+  const phase = playbackPhase(event, nowMs)
+  if (phase === 'failed') return 'FAILED'
+  if (phase === 'executing') return 'REC'
+  if (processing === 'FAILED') return 'FAILED'
+  if (phase === 'executed' || processing === 'DONE') return 'DONE'
+  if (event.is_locked || eventStartMs(event) - nowMs <= DELETE_CUTOFF_MS) return 'QUEUED'
+  return 'SCHEDULED'
+}
+
+/**
  * Why an item may not be deleted at `nowMs`, or `null` when it may.
  *
  * Three windows are frozen:

@@ -454,6 +454,7 @@ class RecordingCRUDSerializer(serializers.ModelSerializer):
             'end_time', 
             'file_size', 
             'status', 
+            'processing_status',
             'duration',
             'note'
         ]

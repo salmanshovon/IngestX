@@ -6,15 +6,23 @@ import { ListVideo, Radio, ScrollText, X } from 'lucide-react'
 
 import type { MediaLane, ScheduleEvent } from '@/api/types'
 
-import { CHANNEL_TIMEZONE, DELETE_CUTOFF_MS } from '@/config'
-
-import { cn } from '@/lib/cn'
-
-import { displayTitle, formatShortDuration } from '@/lib/format'
-
-import { eventEndMs, eventStartMs, groupIntoChains, playbackPhase } from '@/lib/timeline'
-
-import { Badge } from '@/components/ui/primitives'
+import { CHANNEL_TIMEZONE } from '@/config'
+
+import { cn } from '@/lib/cn'
+
+import { displayTitle, formatShortDuration } from '@/lib/format'
+
+import {
+  eventEndMs,
+  eventStartMs,
+  groupIntoChains,
+  playbackPhase,
+  workflowStatus,
+  WORKFLOW_LABEL,
+  type WorkflowStatus,
+} from '@/lib/timeline'
+
+import { Badge, type BadgeTone } from '@/components/ui/primitives'
 
 import { Tooltip } from '@/components/ui/tooltip'
 
@@ -287,12 +295,16 @@ export function RunDown({
 
       <div className="flex items-center gap-3 border-b border-line px-4 py-1.5 text-[10px] text-subtle">
 
-        <Legend swatch="var(--ok)" label="Recorded" />
-
-        <Legend swatch="var(--danger)" label="Recording" pulse />
-
-        <Legend swatch="var(--warn)" label="Queued" />
-
+        <Legend swatch="var(--ok)" label="Done" />
+
+        <Legend swatch="var(--info)" label="Ingesting" />
+
+        <Legend swatch="var(--warn)" label="Testing" />
+
+        <Legend swatch="var(--danger)" label="REC" pulse />
+
+        <Legend swatch="var(--warn)" label="Queued" />
+
         <Legend swatch="var(--accent)" label="Scheduled" />
 
       </div>
@@ -525,69 +537,39 @@ function EventRow({
 
   const isRecording = event.action_type === 'RECORD'
 
-  const tone = PHASE_TONE[phase]
-
-
-
-  // `is_locked` only refreshes when the schedule is refetched, so a file that
+  const tone = PHASE_TONE[phase]
 
-  // crosses the queue point on schedule still sat on "Scheduled" until the
+  // One status vocabulary shared with the timeline chip. TESTING / INGESTING
+  // arrive from TaskQue's file pipeline; the rest are clock-derived.
+  const workflow = workflowStatus(event, now)
 
-  // next poll. Derive it from the clock as well and take whichever answer is
+  // Same bar as the live row: how far through the on-air item we are, landing
 
-  // the more queued. The threshold is the delete cutoff, not the edit lock
+  // on full exactly as it ends.
 
-  // window: "Queued" here means "handed to the recorder, can no longer be
+  const span = row.endMs - row.startMs
 
-  // deleted", which is the fifteen seconds before start.
+  const progress =
 
-  const queued = event.is_locked || (phase === 'upcoming' && now >= row.startMs - DELETE_CUTOFF_MS)
-
-
-
-  // Same bar as the live row: how far through the on-air item we are, landing
-
-  // on full exactly as it ends.
-
-  const span = row.endMs - row.startMs
-
-  const progress =
-
-    phase === 'executing' && span > 0 ? Math.max(0, Math.min(1, (now - row.startMs) / span)) : null
-
-
-
-  const badge =
+    phase === 'executing' && span > 0 ? Math.max(0, Math.min(1, (now - row.startMs) / span)) : null
 
-    phase === 'executing' ? (
 
-      <Badge tone="danger" className="px-1 py-px text-[9px] font-semibold tracking-wide">
 
-        Recording
+  const badge = (
 
-      </Badge>
+    <Badge
 
-    ) : phase === 'failed' ? (
+      tone={WORKFLOW_TONE[workflow]}
 
-      <Badge tone="danger" className="px-1 py-px text-[9px]">Failed</Badge>
+      className={cn('px-1 py-px text-[9px]', workflow === 'REC' && 'font-semibold tracking-wide')}
 
-    ) : phase === 'executed' ? (
+    >
 
-      <Badge tone="ok" className="px-1 py-px text-[9px]">Recorded</Badge>
+      {WORKFLOW_LABEL[workflow]}
 
-    ) : queued ? (
+    </Badge>
 
-      // Past items are locked too, so this branch must sit after the phase
-
-      // checks -- otherwise everything already aired would read "Queued".
-
-      <Badge tone="warn" className="px-1 py-px text-[9px]">Queued</Badge>
-
-    ) : (
-
-      <Badge tone="accent" className="px-1 py-px text-[9px]">Scheduled</Badge>
-
-    )
+  )
 
 
 
@@ -945,16 +927,27 @@ function LiveRow({
 
 
 
-const PHASE_TONE: Record<'executed' | 'executing' | 'upcoming' | 'failed', string> = {
-
-  executed: 'var(--clip-done-border)',
-
-  executing: 'var(--clip-live-border)',
-
-  upcoming: 'var(--clip-scheduled-border)',
-
-  failed: 'var(--clip-error-border)',
-
+const PHASE_TONE: Record<'executed' | 'executing' | 'upcoming' | 'failed', string> = {
+
+  executed: 'var(--clip-done-border)',
+
+  executing: 'var(--clip-live-border)',
+
+  upcoming: 'var(--clip-scheduled-border)',
+
+  failed: 'var(--clip-error-border)',
+
+}
+
+/** Badge colours for the shared workflow vocabulary. */
+const WORKFLOW_TONE: Record<WorkflowStatus, BadgeTone> = {
+  SCHEDULED: 'accent',
+  QUEUED: 'warn',
+  REC: 'danger',
+  TESTING: 'warn',
+  INGESTING: 'info',
+  DONE: 'ok',
+  FAILED: 'danger',
 }
 
 

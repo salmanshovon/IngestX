@@ -54,6 +54,18 @@ class Recording(models.Model):
         ('STOPPED', 'Manually Stopped'),
     ]
 
+    # File-processing stage reported by the TaskQue ingest engine. Kept
+    # separate from ``status``: a capture can be COMPLETED (the recorder has
+    # closed the file) while it is still being probed, repaired or moved to the
+    # delivery share. The scheduler UI shows this as Testing / Ingesting.
+    PROCESSING_CHOICES = [
+        ('', 'Not processing'),
+        ('TESTING', 'Testing'),
+        ('INGESTING', 'Ingesting'),
+        ('DONE', 'Done'),
+        ('FAILED', 'Failed'),
+    ]
+
     port = models.ForeignKey(
         RecordPort,
         on_delete=models.SET_NULL,
@@ -68,6 +80,14 @@ class Recording(models.Model):
     
     file_size = models.BigIntegerField(default=0, help_text="Size in bytes")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SCHEDULED')
+    processing_status = models.CharField(
+        max_length=20,
+        choices=PROCESSING_CHOICES,
+        default='',
+        null=True,
+        blank=True,
+        help_text="Ingest stage reported by TaskQue (TESTING / INGESTING / DONE)",
+    )
     note = models.TextField(blank=True, default='', help_text="Operator note")
 
     @property
