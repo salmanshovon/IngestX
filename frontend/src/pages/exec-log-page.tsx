@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Download, FileSpreadsheet, Filter, RefreshCw } from 'lucide-react'
 
-import type { LogReportParams } from '@/api/reports'
-import { reportsApi } from '@/api/reports'
-import type { LogReportResponse, MediaType, ReportRow, ScheduleStatus } from '@/api/types'
+import type { ScheduleListResponse } from '@/api/types'
+import { schedulesApi } from '@/api/playout'
+import type { MediaType, ReportRow, ScheduleEvent, ScheduleStatus } from '@/api/types'
 import { CHANNEL_TIMEZONE } from '@/config'
 import { usePipelines, useServers } from '@/hooks/use-playout-data'
 import { isApiError } from '@/lib/api-client'
@@ -38,9 +38,7 @@ type SortKey = 'scheduled_time' | 'duration_seconds' | 'media_title' | 'media_ty
 type SortDirection = 'asc' | 'desc'
 
 const TYPE_CHECKBOXES: Array<{ value: MediaType; label: string }> = [
-  { value: 'FILE', label: 'Commercials' },
-  { value: 'CG', label: 'Graphics' },
-  { value: 'SCG', label: 'Standing CG' },
+  { value: 'FILE', label: 'Recordings' },
 ]
 
 /**
@@ -98,17 +96,17 @@ export function ExecLogPage() {
   }, [startDate, endDate])
 
   const requestToken = useRef(0)
-  const [report, setReport] = useState<LogReportResponse | null>(null)
+  const [report, setReport] = useState<ScheduleListResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  const params: LogReportParams | null = useMemo(() => {
+  const params = useMemo(() => {
     if (effectivePipelineId === null || dateError) return null
     return {
       pipeline_id: effectivePipelineId,
-      start_date: startDate,
-      end_date: endDate,
+      from: `${startDate}T00:00:00`,
+      to: `${endDate}T23:59:59`,
       status: status === '' ? undefined : (status as ScheduleStatus),
     }
   }, [effectivePipelineId, startDate, endDate, status, dateError])
@@ -123,8 +121,17 @@ export function ExecLogPage() {
     setLoading(true)
     setError(null)
 
-    reportsApi
-      .log(params, controller.signal)
+    schedulesApi
+      .list(
+        {
+          pipeline_id: params.pipeline_id,
+          from: params.from,
+          to: params.to,
+          status: params.status,
+          page_size: 500,
+        },
+        controller.signal,
+      )
       .then((response) => {
         // FR-XL-08: a later request has already started; this answer is stale.
         if (token !== requestToken.current) return
@@ -147,8 +154,12 @@ export function ExecLogPage() {
   }, [params, manualRefresh])
 
   const rows = useMemo(() => {
-    const list = report?.events ?? []
-    const filtered = list.filter((row) => types.has(row.media_type as MediaType))
+    const list = (report?.results ?? []).map((event: ScheduleEvent) => toReportRow(event))
+    const filtered = list.filter((row) => {
+      if (!types.has(row.media_type as MediaType)) return false
+      if (status !== '' && row.status !== status) return false
+      return true
+    })
     const direction = sortDirection === 'asc' ? 1 : -1
     return [...filtered].sort((a, b) => {
       const left = sortValue(a, sortKey)
@@ -156,7 +167,7 @@ export function ExecLogPage() {
       if (left === right) return a.id - b.id
       return left < right ? -direction : direction
     })
-  }, [report, types, sortKey, sortDirection])
+  }, [report, types, status, sortKey, sortDirection])
 
   function handleSort(column: string) {
     const key = column as SortKey
@@ -193,35 +204,12 @@ export function ExecLogPage() {
     }
   }
 
-  async function handleServerExport() {
-    if (!params) return
-    setExporting(true)
-    try {
-      const blob = await reportsApi.exportCsv(params)
-      const pipeline = pipelines.find((entry) => entry.id === params.pipeline_id)
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = sanitiseFilename(
-        `asrun_${pipeline?.name ?? 'pipeline'}_${startDate}_${endDate}.csv`,
-      )
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      URL.revokeObjectURL(url)
-      notify.success('Server-side export downloaded')
-    } catch (cause) {
-      notify.error('Server export failed', cause instanceof Error ? cause.message : 'Unknown error')
-    } finally {
-      setExporting(false)
-    }
-  }
 
   return (
     <div className="flex min-h-full flex-col">
       <PageHeader
         title="Execution Log"
-        description="As-run report — what the engine actually put to air."
+        description="Recording history — what the ingest engine captured."
         actions={
           <>
             <Button
@@ -358,18 +346,9 @@ export function ExecLogPage() {
               {/* FR-XL-04: "N of M" makes the type filter's effect legible. */}
               <span className="tnum text-2xs text-muted">
                 <span className="font-semibold text-default">{rows.length}</span> of{' '}
-                <span className="font-semibold text-default">{report?.total_events ?? 0}</span> event(s)
+                <span className="font-semibold text-default">{report?.count ?? 0}</span> event(s)
               </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleServerExport}
-                disabled={exporting || !params}
-                icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
-                title="Download the full report from the server (for ranges too large to hold in the browser)"
-              >
-                Server export
-              </Button>
+
             </div>
           </div>
         </Panel>
@@ -402,6 +381,7 @@ export function ExecLogPage() {
                     <SortHeader label="Title" column="media_title" active={sortKey === 'media_title'} direction={sortDirection} onSort={handleSort} />
                     <SortHeader label="Type" column="media_type" active={sortKey === 'media_type'} direction={sortDirection} onSort={handleSort} />
                     <TH>Template</TH>
+                    <TH>Ingest</TH>
                     <SortHeader label="Status" column="status" active={sortKey === 'status'} direction={sortDirection} onSort={handleSort} />
                     <TH className="w-14 text-right">Lane</TH>
                   </tr>
@@ -460,6 +440,11 @@ function ReportRowView({ row }: { row: ReportRow }) {
         <span className="text-2xs text-muted">{row.template_name || '—'}</span>
       </TD>
       <TD>
+        <Badge tone={row.processing_status === 'DONE' ? 'ok' : row.processing_status === 'FAILED' ? 'danger' : 'warn'}>
+          {row.processing_status || '—'}
+        </Badge>
+      </TD>
+      <TD>
         <StatusBadge status={row.status} />
       </TD>
       <TD>
@@ -508,6 +493,7 @@ function toCsv(rows: ReportRow[], sortKey: SortKey, direction: SortDirection): s
     'template_name',
     'media_lane',
     'status',
+    'processing_status',
     'media_file_path',
   ]
   const sorted = [...rows].sort((a, b) => {
@@ -534,12 +520,36 @@ function toCsv(rows: ReportRow[], sortKey: SortKey, direction: SortDirection): s
         row.template_name,
         row.media_lane,
         row.status,
+        row.processing_status,
         row.media_file_path,
       ]
         .map(escape)
         .join(','),
     ),
   ].join('\n')
+}
+
+function toReportRow(event: ScheduleEvent): ReportRow {
+  const durationSeconds =
+    event.duration_seconds === '' || event.duration_seconds === null
+      ? 0
+      : Number(event.duration_seconds) || 0
+  return {
+    id: event.id,
+    pipeline_id: event.pipeline,
+    action_type: event.action_type,
+    media_lane: event.media_lane,
+    status: event.status,
+    scheduled_time: event.scheduled_time,
+    end_time: event.end_time,
+    duration_seconds: durationSeconds,
+    duration_display: '',
+    media_title: event.media_title,
+    media_type: (event.media_type || 'FILE') as MediaType,
+    media_file_path: event.media_file_path,
+    template_name: event.template_name || '',
+    processing_status: event.processing_status ?? null,
+  }
 }
 
 // --- date helpers (channel-agnostic; the browser's calendar is the operator's) ---

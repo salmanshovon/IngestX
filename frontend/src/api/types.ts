@@ -447,6 +447,8 @@ export interface ReportRow {
   media_type: MediaType | ''
   media_file_path: string
   template_name: string
+  /** Ingest stage reported by the ingest engine (TESTING/INGESTING/DONE/FAILED). */
+  processing_status?: 'TESTING' | 'INGESTING' | 'DONE' | 'FAILED' | '' | null
 }
 
 export interface LogReportResponse {
