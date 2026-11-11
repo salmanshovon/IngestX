@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import type { ScheduleEvent } from '@/api/types'
 import { DEFAULT_RECORD_MS, MIN_RECORD_MS, RECORD_GAP_MS } from '@/config'
 import { api } from '@/lib/api-client'
-import { nextScheduledStart } from '@/lib/recording'
+import { nextScheduledStart, sanitizeFilename, hasInvalidFilenameChars } from '@/lib/recording'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
@@ -121,6 +121,10 @@ export function RecordModal({
       setError('No room before the next item — a recording needs at least 10 seconds.')
       return
     }
+    if (hasInvalidFilenameChars(suffix) || hasInvalidFilenameChars(prefix)) {
+      setError('Filename cannot contain /, \\, :, *, ?, ", <, >, or |.')
+      return
+    }
     const nextStart = nextStartFor(startMs)
     if (nextStart !== null && endMs > nextStart - RECORD_GAP_MS) {
       setError('The next item starts too soon. Leave at least 10 seconds after this recording.')
@@ -155,7 +159,7 @@ export function RecordModal({
         </div>
         <div className="grid grid-cols-[88px_1fr] items-start gap-2">
           <span className="pt-1 text-2xs text-subtle">Name</span>
-          <Input value={suffix} onChange={(e) => setSuffix(e.target.value)} className="h-8 text-xs" />
+          <Input value={suffix} onChange={(e) => setSuffix(sanitizeFilename(e.target.value))} className="h-8 text-xs" />
         </div>
         <div className="grid grid-cols-[88px_1fr] items-start gap-2">
           <span className="pt-1 text-2xs text-subtle">File path</span>

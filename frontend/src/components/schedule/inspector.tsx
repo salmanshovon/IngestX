@@ -21,7 +21,7 @@ import {
   formatShortDuration,
   toNumber,
 } from '@/lib/format'
-import { canStopRecording, recordingStopInMs } from '@/lib/recording'
+import { canStopRecording, recordingStopInMs, sanitizeFilename, hasInvalidFilenameChars } from '@/lib/recording'
 import { deleteBlock, deleteBlockMessage, eventEndMs, eventStartMs, isLiveAt } from '@/lib/timeline'
 import { StatusBadge } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
@@ -164,7 +164,7 @@ export function Inspector({
     setStartValue(toLocalInput(event.scheduled_time, offset))
     setEndValue(event.end_time ? toLocalInput(event.end_time, offset) : '')
     setNoteValue(event.note ?? '')
-    setSuffixValue(splitFilename(event.media_title).suffix)
+    setSuffixValue(sanitizeFilename(splitFilename(event.media_title).suffix))
     setTouched(false)
     durationFocused.current = false
     setDurationValue(
@@ -259,9 +259,15 @@ export function Inspector({
     minDurationMs,
   })
 
+  const filenameInvalid =
+    isRecording && canEditName && hasInvalidFilenameChars(suffixValue)
+  const effectiveValidation =
+    validation || (filenameInvalid ? 'Filename cannot contain /, \\, :, *, ?, ", <, >, or |.' : null)
+
   function save() {
     setTouched(true)
-    if (validation) return
+    if (effectiveValidation) return
+    if (suffixChanged && filenameInvalid) return
     const patch: { scheduled_time?: string; end_time?: string | null; note?: string; filename?: string } = {}
     if (startChanged && startIso) patch.scheduled_time = startIso
     if (endChanged) patch.end_time = endIso
@@ -369,7 +375,7 @@ export function Inspector({
                   disabled={!canEditName}
                   onChange={(event_) => {
                     setTouched(true)
-                    setSuffixValue(event_.target.value)
+                    setSuffixValue(sanitizeFilename(event_.target.value))
                   }}
                   className="h-8 text-xs"
                 />
@@ -505,9 +511,9 @@ export function Inspector({
           </Row>
         </dl>
 
-        {validation && touched && (
+        {effectiveValidation && touched && (
           <p role="alert" className="mt-3 rounded-md bg-danger-soft px-2.5 py-2 text-2xs text-danger">
-            {validation}
+            {effectiveValidation}
           </p>
         )}
       </div>
@@ -555,7 +561,7 @@ export function Inspector({
           size="sm"
           className="ml-auto"
           loading={isSaving}
-          disabled={!dirty || (!canEditStart && !canEditEnd && !canEditNote && !canEditName)}
+          disabled={!dirty || filenameInvalid || (!canEditStart && !canEditEnd && !canEditNote && !canEditName)}
           onClick={save}
           icon={<Save className="h-3.5 w-3.5" />}
         >

@@ -32,6 +32,28 @@ export function recordingSuffix(filename: string): string {
   return match ? match[1] : filename || 'recording'
 }
 
+/** Characters that are not allowed in a recording filename (filesystem-unsafe). */
+export const INVALID_FILENAME_CHARACTERS = '/\\:*?"<>|'
+
+export function hasInvalidFilenameChars(value: string): boolean {
+  return [...INVALID_FILENAME_CHARACTERS].some((char) => (value || '').includes(char))
+}
+
+export function sanitizeFilename(value: string): string {
+  const chars = new Set(INVALID_FILENAME_CHARACTERS)
+  return [...(value || '')].filter((char) => !chars.has(char)).join('')
+}
+
+export function validateFilename(value: string): boolean {
+  return !hasInvalidFilenameChars(value)
+}
+
+export function isValidFilename(value: string): boolean {
+  return !hasInvalidFilenameChars(value)
+}
+
+export const INVALID_FILENAME_CHARS = INVALID_FILENAME_CHARACTERS
+
 /** Earliest scheduled recording on `pipelineId` that starts after `afterMs`. */
 export function nextScheduledStart(
   events: readonly ScheduleEvent[],

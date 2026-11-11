@@ -1002,7 +1002,14 @@ class ScheduleDetailView(APIView):
         if 'end_time' in data:
             rec.end_time = data.get('end_time')
         if 'filename' in data:
-            rec.filename = data.get('filename', rec.filename)
+            new_filename = data.get('filename', rec.filename)
+            if any(c in (new_filename or '') for c in '/\\:*?"<>|'):
+                return Response(
+                    {'detail': 'Filename must not contain /, \\, :, *, ?, ", <, >, or |.',
+                     'filename': ['Filename must not contain /, \\, :, *, ?, ", <, >, or |.']},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            rec.filename = new_filename
         if 'filepath' in data:
             rec.filepath = data.get('filepath', rec.filepath)
         if 'status' in data:
@@ -1372,10 +1379,17 @@ class ScheduleListView(APIView):
     def post(self, request):
         data = request.data or {}
         port_id = data.get('port', data.get('pipeline'))
+        filename = data.get('filename', '')
+        if any(c in (filename or '') for c in '/\\:*?"<>|'):
+            return Response(
+                {'detail': 'Filename must not contain /, \\, :, *, ?, ", <, >, or |.',
+                 'filename': ['Filename must not contain /, \\, :, *, ?, ", <, >, or |.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             rec = Recording(
                 port_id=port_id,
-                filename=data.get('filename', ''),
+                filename=filename,
                 filepath=data.get('filepath', ''),
                 start_time=data.get('start_time', data.get('scheduled_time', timezone.now())),
                 end_time=data.get('end_time'),

@@ -39,6 +39,7 @@ import {
   recordingPrefix,
   recordingStopInMs,
   recordingSuffix,
+  sanitizeFilename,
   startImmediateRecording,
   stopRecordingNow,
 } from '@/lib/recording'
@@ -1018,7 +1019,7 @@ export function SchedulePage() {
               }
               onClick={() => {
                 if (!canDuplicate) return
-                const suffix = recordingSuffix(ev.media_title)
+                const suffix = sanitizeFilename(recordingSuffix(ev.media_title))
                 api
                   .post('/recordings/', {
                     port: ev.pipeline,

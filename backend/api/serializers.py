@@ -407,9 +407,19 @@ class RecordSerializer(serializers.Serializer):
     channel = serializers.IntegerField(default=1)
     filename = serializers.CharField(max_length=255)
 
+    def validate_filename(self, value):
+        if any(c in (value or '') for c in '/\\:*?"<>|'):
+            raise serializers.ValidationError('Filename must not contain /, \\, :, *, ?, ", <, >, or |.')
+        return value
+
 class StopRecordSerializer(serializers.Serializer):
     channel = serializers.IntegerField(default=1)
     filename = serializers.CharField(max_length=255)
+
+    def validate_filename(self, value):
+        if any(c in (value or '') for c in '/\\:*?"<>|'):
+            raise serializers.ValidationError('Filename must not contain /, \\, :, *, ?, ", <, >, or |.')
+        return value
 
 class RecordServerMinimalSerializer(serializers.ModelSerializer):
     """
@@ -442,6 +452,14 @@ class RecordPortStatusSerializer(serializers.ModelSerializer):
 class RecordingCRUDSerializer(serializers.ModelSerializer):
     # Expose duration as a read-only field since it's a model property
     duration = serializers.SerializerMethodField()
+
+    def validate_filename(self, value):
+        invalid = [c for c in '/\\:*?"<>|' if c in (value or '')]
+        if invalid:
+            raise serializers.ValidationError(
+                'Filename must not contain /, \\, :, *, ?, ", <, >, or |.'
+            )
+        return value
 
     class Meta:
         model = Recording
