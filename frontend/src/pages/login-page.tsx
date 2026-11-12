@@ -1,12 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertCircle, ArrowRight, Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react'
+import { AlertCircle, ArrowRight, Eye, EyeOff, KeyRound, Loader2, Moon, Sun } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
-import { CHANNEL_TIMEZONE, PRODUCT_NAME, PRODUCT_TAGLINE } from '@/config'
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/config'
 import { useAuth } from '@/hooks/use-auth'
+import { useUiStore } from '@/stores/ui-store'
 import { ApiError, isApiError } from '@/lib/api-client'
 import { cn } from '@/lib/cn'
 import { PlyoutLogo } from '@/components/layout/logo'
@@ -79,7 +80,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Sign in"
-      subtitle={`${PRODUCT_TAGLINE} · ${CHANNEL_TIMEZONE}`}
+      subtitle={PRODUCT_TAGLINE}
       footer={
         <>
           <span className="text-muted">Forgot your password?</span>
@@ -185,7 +186,7 @@ export function LoginPage() {
 
         <p className="flex items-center justify-center gap-1.5 pt-1 text-2xs text-subtle">
           <KeyRound className="h-3 w-3" />
-          Session-protected · No password is stored in this browser
+          Session protected
         </p>
       </form>
     </AuthLayout>
@@ -205,6 +206,7 @@ export function AuthLayout({
   children: React.ReactNode
   footer?: React.ReactNode
 }) {
+  const { theme, toggleTheme } = useUiStore()
   return (
     <div className="relative flex min-h-full items-center justify-center overflow-hidden bg-canvas px-4 py-10">
       {/* Ambient gradient wash: keeps the sign-in page from reading as a bare
@@ -218,6 +220,15 @@ export function AuthLayout({
             'radial-gradient(48rem 30rem at 92% 108%, color-mix(in srgb, var(--info) 14%, transparent), transparent 70%)',
         }}
       />
+
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-md border border-line bg-surface text-muted transition-colors hover:text-default"
+      >
+        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
 
       <div className="relative w-full max-w-sm">
         <div className="mb-7 flex flex-col items-center gap-3 text-center">
@@ -236,6 +247,7 @@ export function AuthLayout({
         {footer && (
           <div className="mt-5 flex items-center justify-center gap-1.5 text-xs">{footer}</div>
         )}
+        <p className="mt-6 text-center text-2xs text-subtle">Developed by Salman Mahmood</p>
       </div>
     </div>
   )
