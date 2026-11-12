@@ -61,7 +61,7 @@ export interface CreateUserInput {
 
 export const usersApi = {
   list: (params: UserListParams = {}) =>
-    api.get<Paginated<AccountUser>>('/users', {
+    api.get<Paginated<AccountUser>>('/userlist', {
       search: params.search,
       page: params.page,
       page_size: params.page_size,

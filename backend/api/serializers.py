@@ -35,10 +35,24 @@ class RoleWithCountSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     roles = RoleSerializer(many=True, read_only=True)
     profile_picture = serializers.ImageField(read_only=True)
-    
+    department = serializers.IntegerField(source='department_id', read_only=True, allow_null=True)
+    department_name = serializers.CharField(source='department.name', read_only=True, allow_null=True)
+    role_ids = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone_number', 'profile_picture', 'roles']
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'email', 'phone_number',
+            'profile_picture', 'roles', 'role_ids', 'department', 'department_name',
+            'is_active', 'is_new', 'is_superuser', 'date_joined', 'permissions',
+        ]
+
+    def get_role_ids(self, obj):
+        return list(obj.roles.values_list('id', flat=True))
+
+    def get_permissions(self, obj):
+        return []
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

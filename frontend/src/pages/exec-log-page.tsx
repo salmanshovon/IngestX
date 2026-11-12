@@ -9,10 +9,9 @@ import { usePipelines, useServers } from '@/hooks/use-playout-data'
 import { isApiError } from '@/lib/api-client'
 import { cn } from '@/lib/cn'
 import {
-  formatDate,
+  formatClock,
   displayTitle,
   formatDurationHhmmssmmm,
-  formatFull,
   sanitiseFilename,
   STATUS_LABEL,
   toNumber,
@@ -376,19 +375,18 @@ export function ExecLogPage() {
               <Table>
                 <THead>
                   <tr>
+                    <TH>Event ID</TH>
                     <SortHeader label="Scheduled" column="scheduled_time" active={sortKey === 'scheduled_time'} direction={sortDirection} onSort={handleSort} />
                     <SortHeader label="Duration" column="duration_seconds" active={sortKey === 'duration_seconds'} direction={sortDirection} onSort={handleSort} />
                     <SortHeader label="Title" column="media_title" active={sortKey === 'media_title'} direction={sortDirection} onSort={handleSort} />
-                    <SortHeader label="Type" column="media_type" active={sortKey === 'media_type'} direction={sortDirection} onSort={handleSort} />
-                    <TH>Template</TH>
                     <TH>Ingest</TH>
                     <SortHeader label="Status" column="status" active={sortKey === 'status'} direction={sortDirection} onSort={handleSort} />
-                    <TH className="w-14 text-right">Lane</TH>
+                    <TH>Channel</TH>
                   </tr>
                 </THead>
                 <TBody>
                   {rows.map((row) => (
-                    <ReportRowView key={row.id} row={row} />
+                    <ReportRowView key={row.id} row={row} pipelineName={pipelines.find((p) => p.id === effectivePipelineId)?.name} />
                   ))}
                 </TBody>
               </Table>
@@ -410,18 +408,28 @@ export function ExecLogPage() {
 
 // ---------------------------------------------------------------------------
 
-function ReportRowView({ row }: { row: ReportRow }) {
+function ReportRowView({ row, pipelineName }: { row: ReportRow; pipelineName?: string }) {
+  const execDateTime = (() => {
+    if (!row.scheduled_time) return '—'
+    const date = new Intl.DateTimeFormat('en-GB', {
+      timeZone: CHANNEL_TIMEZONE,
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(row.scheduled_time))
+    const time = formatClock(row.scheduled_time, CHANNEL_TIMEZONE)
+    return `${date} - ${time}`
+  })()
+
   return (
     <TR>
       <TD>
-        <span className="tnum block text-xs text-default">
-          {formatFull(row.scheduled_time, CHANNEL_TIMEZONE)}
-        </span>
-        <span className="tnum block text-[10px] text-subtle">
-          {formatDate(row.scheduled_time, CHANNEL_TIMEZONE)}
-        </span>
+        <span className="tnum text-xs text-default">#{row.id}</span>
       </TD>
-      <TD numeric>
+      <TD>
+        <span className="tnum block text-xs text-default">{execDateTime}</span>
+      </TD>
+      <TD>
         {/* FR-XL-06: hh:mm:ss.mmm, exactly as the engine's own report renders. */}
         <span className="tnum text-2xs">{row.duration_display || formatDurationHhmmssmmm(row.duration_seconds)}</span>
       </TD>
@@ -432,14 +440,6 @@ function ReportRowView({ row }: { row: ReportRow }) {
         <span className="block truncate font-mono text-[10px] text-subtle">{row.media_file_path}</span>
       </TD>
       <TD>
-        <Badge tone={row.media_type === 'FILE' ? 'info' : 'accent'}>
-          {row.media_type || '—'}
-        </Badge>
-      </TD>
-      <TD>
-        <span className="text-2xs text-muted">{row.template_name || '—'}</span>
-      </TD>
-      <TD>
         <Badge tone={row.processing_status === 'DONE' ? 'ok' : row.processing_status === 'FAILED' ? 'danger' : 'warn'}>
           {row.processing_status || '—'}
         </Badge>
@@ -448,7 +448,7 @@ function ReportRowView({ row }: { row: ReportRow }) {
         <StatusBadge status={row.status} />
       </TD>
       <TD>
-        <span className="text-2xs text-subtle">{row.media_lane ?? '—'}</span>
+        <span className="text-2xs text-subtle">{pipelineName ?? row.pipeline_id}</span>
       </TD>
     </TR>
   )
