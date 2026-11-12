@@ -8,7 +8,7 @@
 
 export const PRODUCT_NAME = 'IngestX'
 
-export const PRODUCT_TAGLINE = 'Playout control plane'
+export const PRODUCT_TAGLINE = 'Record Control Panel'
 
 /**
  * Channel timezone. The broadcast day is Asia/Dhaka (UTC+06:00) regardless of

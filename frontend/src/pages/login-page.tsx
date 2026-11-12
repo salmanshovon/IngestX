@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
-import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/config'
+import { PRODUCT_TAGLINE } from '@/config'
 import { useAuth } from '@/hooks/use-auth'
 import { useUiStore } from '@/stores/ui-store'
 import { ApiError, isApiError } from '@/lib/api-client'
@@ -232,9 +232,12 @@ export function AuthLayout({
 
       <div className="relative w-full max-w-sm">
         <div className="mb-7 flex flex-col items-center gap-3 text-center">
-          <PlyoutLogo size={40} />
+          <PlyoutLogo size={48} />
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-default">{PRODUCT_NAME}</h1>
+            <h1 className="text-xl font-bold tracking-tight">
+              <span className="text-default">Ingest</span>
+              <span className="text-accent">X</span>
+            </h1>
             <p className="mt-0.5 text-xs text-muted">{subtitle ?? PRODUCT_TAGLINE}</p>
           </div>
         </div>
